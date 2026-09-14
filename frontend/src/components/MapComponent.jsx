@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
-import { Maximize, Minimize, LocateFixed, X } from 'lucide-react'; 
+import { Maximize, LocateFixed, Loader2, X } from 'lucide-react';
 
 // Fix for standard Leaflet marker icons disappearing in React
 const defaultIcon = L.icon({
@@ -40,24 +40,54 @@ const LocationPickerEvent = ({ onLocationSelect }) => {
 };
 
 // SUB-COMPONENT: The GPS Locator Button
-const GPSButton = () => {
+// Flies the map to the browser's current geolocation and, when acting as a
+// location picker, also drops/moves the pin there (so clicking it actually
+// sets the incident location, not just pans the camera).
+const GPSButton = ({ isPicker, onLocationSelect }) => {
   const map = useMap();
+  const [isLocating, setIsLocating] = useState(false);
+
   return (
     <button
-      type="button" 
-      className="absolute bottom-4 right-4 z-[1000] p-3 bg-emerald-600 hover:bg-emerald-500 text-zinc-950 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all"
+      type="button"
+      disabled={isLocating}
+      className="absolute bottom-4 right-4 z-[1000] p-3 bg-brand-600 hover:bg-brand-700 text-white rounded-full shadow-md transition-all disabled:opacity-60"
+      title="Use my current location"
       onClick={(e) => {
         e.preventDefault();
+
+        if (!("geolocation" in navigator)) {
+          alert("GPS is not supported by your browser.");
+          return;
+        }
+
+        setIsLocating(true);
         navigator.geolocation.getCurrentPosition(
           (pos) => {
-            map.flyTo([pos.coords.latitude, pos.coords.longitude], 16);
+            const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            map.flyTo([here.lat, here.lng], 16);
+
+            // Actually place the marker at the real location when picking a spot
+            if (isPicker && onLocationSelect) {
+              onLocationSelect(here);
+            }
+
+            setIsLocating(false);
           },
-          (err) => alert("Please allow location access in your browser."),
+          (err) => {
+            console.error("GPS Error:", err);
+            alert("Could not get your location. Please allow location access in your browser.");
+            setIsLocating(false);
+          },
           { enableHighAccuracy: true }
         );
       }}
     >
-      <LocateFixed size={20} />
+      {isLocating ? (
+        <Loader2 size={20} className="animate-spin" />
+      ) : (
+        <LocateFixed size={20} />
+      )}
     </button>
   );
 };
@@ -105,30 +135,30 @@ const MapComponent = ({
   }, [workerLocation, complaintLocation, isPicker]);
 
   return (
-    <div className={isFullscreen 
-      ? "fixed inset-0 z-[9999] bg-zinc-950/90 backdrop-blur-sm p-4 sm:p-10 flex flex-col" 
-      : "w-full h-full min-h-[300px] rounded-lg overflow-hidden border border-zinc-800 relative z-0"
+    <div className={isFullscreen
+      ? "fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm p-4 sm:p-10 flex flex-col"
+      : "w-full h-full min-h-[300px] rounded-lg overflow-hidden border border-gray-200 relative z-0"
     }>
-      
-      <div className={`relative z-0 ${isFullscreen ? "w-full h-full rounded-xl overflow-hidden border border-zinc-800 shadow-2xl" : "h-full w-full"}`}>
-        
-        {/* NEW: Floating Close (X) Button inside the map at Top Right */}
+
+      <div className={`relative z-0 ${isFullscreen ? "w-full h-full rounded-xl overflow-hidden border border-gray-200 shadow-2xl" : "h-full w-full"}`}>
+
+        {/* Floating Close (X) Button inside the map at Top Right */}
         {isFullscreen && (
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); setIsFullscreen(false); }}
-            className="absolute top-4 right-4 z-[1000] p-2 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-zinc-300 hover:text-red-500 rounded shadow-lg transition-all"
-            title="Close Map"
+            className="absolute top-4 right-4 z-[1000] p-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-red-500 rounded-lg shadow-md transition-all"
+            title="Close map"
           >
             <X size={20} />
           </button>
         )}
 
-        <MapContainer 
-          center={isPicker ? [complaintLocation.lat, complaintLocation.lng] : [workerLocation.lat, workerLocation.lng]} 
-          zoom={13} 
+        <MapContainer
+          center={isPicker ? [complaintLocation.lat, complaintLocation.lng] : [workerLocation.lat, workerLocation.lng]}
+          zoom={13}
           zoomControl={false} // Disable default so we can explicitly place our own
-          style={{ height: '100%', width: '100%', background: '#09090b' }}
+          style={{ height: '100%', width: '100%', background: '#f3f4f6' }}
         >
           {/* Explicitly lock Zoom (+ / -) controls to Top Left */}
           <ZoomControl position="topleft" />
@@ -142,16 +172,16 @@ const MapComponent = ({
           
           {isPicker && <LocationPickerEvent onLocationSelect={onLocationSelect} />}
 
-          <GPSButton />
+          <GPSButton isPicker={isPicker} onLocationSelect={onLocationSelect} />
 
           {!isPicker && (
             <Marker position={[workerLocation.lat, workerLocation.lng]} icon={defaultIcon}>
-              <Popup>Unit 42-ALPHA (You)</Popup>
+              <Popup>Your location</Popup>
             </Marker>
           )}
 
           <Marker position={[complaintLocation.lat, complaintLocation.lng]} icon={alertIcon}>
-            <Popup>{isPicker ? "Incident Location" : "Active Incident"}</Popup>
+            <Popup>{isPicker ? "Incident location" : "Active incident"}</Popup>
           </Marker>
 
           {!isPicker && routeCoords.length > 0 && (
@@ -164,16 +194,16 @@ const MapComponent = ({
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); setIsFullscreen(true); }}
-            className="absolute bottom-4 left-4 z-[1000] p-2 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-zinc-300 rounded shadow-lg transition-all"
-            title="Expand Map"
+            className="absolute bottom-4 left-4 z-[1000] p-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-500 rounded-lg shadow-md transition-all"
+            title="Expand map"
           >
             <Maximize size={20} />
           </button>
         )}
-        
+
         {isLoadingRoute && (
-          <div className="absolute top-2 right-2 bg-zinc-900/90 text-amber-500 px-3 py-1 text-xs font-mono rounded border border-zinc-700 z-[1000]">
-            CALCULATING ROUTE...
+          <div className="absolute top-2 right-2 bg-white text-amber-600 px-3 py-1 text-xs font-medium rounded-md border border-gray-200 shadow-sm z-[1000]">
+            Calculating route…
           </div>
         )}
       </div>

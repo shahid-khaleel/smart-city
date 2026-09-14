@@ -9,15 +9,15 @@ const LiveClock = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Always shown in IST, regardless of the viewer's own device/browser timezone.
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/50 border border-zinc-800 rounded-lg shadow-inner">
-      <Clock size={14} className="text-emerald-500" />
-      <span className="text-[10px] font-mono text-zinc-300 uppercase tracking-widest">
-        {time.toLocaleDateString('en-GB', { 
-          day: '2-digit', 
-          month: 'short', 
-          year: 'numeric' 
-        })} // {time.toLocaleTimeString('en-GB', { hour12: false })}
+    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-lg text-gray-500 text-sm">
+      <Clock size={14} />
+      <span>
+        {time.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}
+        {' · '}
+        {time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })}
+        {' IST'}
       </span>
     </div>
   );

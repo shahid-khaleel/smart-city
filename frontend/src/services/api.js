@@ -1,5 +1,6 @@
-// The base URL where your FastAPI server will eventually run
-const BASE_URL = 'http://localhost:8000/api'; 
+// Relative so it resolves against whatever host the page was loaded from
+// (localhost, or another device's IP on the LAN) and goes through Vite's dev proxy.
+const BASE_URL = '/api';
 
 // Helper function to grab the Vault security token from local storage
 const getToken = () => localStorage.getItem('smartcity_auth_token');

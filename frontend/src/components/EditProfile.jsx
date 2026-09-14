@@ -43,13 +43,11 @@ const EditProfile = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // ONE-TIME UNLOCK STATES
-  const [requestStatus, setRequestStatus] = useState("None"); // None, Pending, Approved, Denied
+  const [requestStatus, setRequestStatus] = useState("None");
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [requestReason, setRequestReason] = useState("");
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
-  // If role is restricted AND request isn't approved, lock the form!
   const isFormLocked = isRestrictedRole && requestStatus !== "Approved";
 
   useEffect(() => {
@@ -57,8 +55,7 @@ const EditProfile = () => {
       try {
         const token = localStorage.getItem("token");
 
-        // Fetch Profile Data
-        const response = await fetch("http://localhost:8000/api/auth/me", {
+        const response = await fetch("/api/auth/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -67,26 +64,17 @@ const EditProfile = () => {
           setFormData({
             fullName: dbUser.full_name || dbUser.name || "",
             email: dbUser.email || "",
-            phone:
-              dbUser.phone_number ||
-              dbUser.phone ||
-              dbUser.phone_no ||
-              dbUser.mobile ||
-              "",
+            phone: dbUser.phone_number || dbUser.phone || dbUser.phone_no || dbUser.mobile || "",
             city: dbUser.city || "",
             state: dbUser.state || "",
             password: "",
           });
         }
 
-        // Fetch Edit Request Status (To see if Admin unlocked them)
         if (isRestrictedRole) {
-          const statusRes = await fetch(
-            "http://localhost:8000/api/auth/edit-request/status",
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
+          const statusRes = await fetch("/api/auth/edit-request/status", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
           if (statusRes.ok) {
             const statusData = await statusRes.json();
             setRequestStatus(statusData.status);
@@ -117,7 +105,7 @@ const EditProfile = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:8000/api/auth/me", {
+      const response = await fetch("/api/auth/me", {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -134,15 +122,14 @@ const EditProfile = () => {
 
       if (response.ok) {
         setSaveSuccess(true);
-        // Instant Lock-Out: Reset status so the form greys out immediately after saving
         setRequestStatus("None");
         setTimeout(() => setSaveSuccess(false), 3000);
       } else {
         const errorData = await response.json();
-        setErrorMsg(errorData.detail || "Failed to update database.");
+        setErrorMsg(errorData.detail || "Failed to update profile.");
       }
     } catch (err) {
-      setErrorMsg("Network error during transmission.");
+      setErrorMsg("Network error while saving.");
     } finally {
       setIsSaving(false);
     }
@@ -155,27 +142,24 @@ const EditProfile = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(
-        "http://localhost:8000/api/auth/request-edit",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ reason: requestReason }),
+      const response = await fetch("/api/auth/request-edit", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({ reason: requestReason }),
+      });
 
       if (response.ok) {
-        setRequestStatus("Pending"); // Automatically flip UI to pending state
+        setRequestStatus("Pending");
         setShowRequestForm(false);
         setRequestReason("");
       } else {
-        setErrorMsg("Failed to transmit request to Command Center.");
+        setErrorMsg("Failed to send the request to your admin.");
       }
     } catch (error) {
-      setErrorMsg("Network error during transmission.");
+      setErrorMsg("Network error while sending the request.");
     } finally {
       setIsSubmittingRequest(false);
     }
@@ -183,110 +167,69 @@ const EditProfile = () => {
 
   if (isFetching) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <Loader2 className="animate-spin text-emerald-500" size={40} />
-        <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest">
-          Decrypting Identity Record...
-        </p>
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <Loader2 className="animate-spin text-brand-600" size={32} />
+        <p className="text-sm text-gray-400">Loading your profile…</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center gap-3 mb-8 border-b border-zinc-800/80 pb-5">
-        <div className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl shadow-inner">
-          <User className="text-emerald-500" size={24} />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-zinc-100 uppercase tracking-widest text-shadow-sm">
-            Identity Profile
-          </h2>
-          <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mt-1">
-            Manage User Credentials
-          </p>
-        </div>
+    <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="mb-5">
+        <h2 className="text-lg font-semibold text-gray-900">Profile settings</h2>
+        <p className="text-xs text-gray-500 mt-0.5">Manage your account details</p>
       </div>
 
-      <div className="vault-card p-6 md:p-8 border border-zinc-800/80 shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-xl bg-zinc-950/80 backdrop-blur-xl">
-        {/* Avatar Section */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="w-24 h-24 rounded-full bg-zinc-900 border-2 border-emerald-500/50 flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(16,185,129,0.15)] relative group overflow-hidden">
-            <span className="text-3xl font-bold text-emerald-400">
+      <div className="card p-5 md:p-6">
+        {/* Avatar */}
+        <div className="flex flex-col items-center mb-6">
+          <div className="w-16 h-16 rounded-full bg-brand-50 border border-brand-200 flex items-center justify-center mb-2.5">
+            <span className="text-xl font-semibold text-brand-600">
               {formData.fullName.charAt(0) || "U"}
             </span>
-            {!isFormLocked && (
-              <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                <span className="text-[10px] font-mono text-white uppercase tracking-widest">
-                  Edit
-                </span>
-              </div>
-            )}
           </div>
-          <h3 className="text-lg font-bold text-zinc-200 uppercase tracking-wide">
-            {formData.fullName || "Authorized User"}
-          </h3>
-          <span className="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-full text-[10px] font-mono text-emerald-500 uppercase tracking-widest mt-2">
-            Role: {user?.role || "Citizen"}
-          </span>
+          <h3 className="text-sm font-semibold text-gray-900">{formData.fullName || "User"}</h3>
+          <span className="badge badge-gray mt-1.5 capitalize">{user?.role || "Citizen"}</span>
         </div>
 
-        {/* RESTRICTED / UNLOCKED BANNER UI */}
+        {/* Restricted-role banner */}
         {isRestrictedRole && (
-          <div className="mb-8 flex flex-col gap-4">
+          <div className="mb-6 flex flex-col gap-2.5">
             {requestStatus === "Approved" ? (
-              <div className="p-4 bg-emerald-950/30 border-l-4 border-emerald-500 rounded-r-lg flex items-start gap-3 shadow-lg">
-                <Unlock
-                  className="text-emerald-500 shrink-0 mt-0.5"
-                  size={18}
-                />
-                <div className="flex-1">
-                  <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-1">
-                    Editing Authorized
-                  </h4>
-                  <p className="text-[10px] font-mono text-zinc-300 uppercase tracking-wider leading-relaxed">
-                    Command Center has temporarily unlocked your profile. You
-                    may update your credentials. This permission will be
-                    securely revoked immediately after saving.
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-3">
+                <Unlock className="text-emerald-600 shrink-0 mt-0.5" size={18} />
+                <div>
+                  <h4 className="text-sm font-medium text-emerald-800 mb-1">Editing unlocked</h4>
+                  <p className="text-sm text-emerald-700/80 leading-relaxed">
+                    An admin has temporarily unlocked your profile. This access is revoked automatically after you save.
                   </p>
                 </div>
               </div>
             ) : requestStatus === "Pending" ? (
-              <div className="p-4 bg-amber-950/30 border-l-4 border-amber-500 rounded-r-lg flex items-start gap-3 shadow-lg">
-                <ShieldAlert
-                  className="text-amber-500 shrink-0 mt-0.5"
-                  size={18}
-                />
-                <div className="flex-1">
-                  <h4 className="text-xs font-bold text-amber-400 uppercase tracking-widest mb-1">
-                    Editing Restricted
-                  </h4>
-                  <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider leading-relaxed mb-3">
-                    Profile edits require direct authorization from the Command
-                    Center Administrator.
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                <ShieldAlert className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                <div>
+                  <h4 className="text-sm font-medium text-amber-800 mb-1">Editing restricted</h4>
+                  <p className="text-sm text-amber-700/80 leading-relaxed mb-3">
+                    Profile edits need admin approval for your role.
                   </p>
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-950/30 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded border border-emerald-900/50">
-                    <Check size={12} /> Authorization Request Transmitted
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-emerald-700 text-xs font-medium rounded-md border border-emerald-200">
+                    <Check size={12} /> Request sent — awaiting approval
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="p-4 bg-amber-950/30 border-l-4 border-amber-500 rounded-r-lg flex items-start gap-3 shadow-lg">
-                <ShieldAlert
-                  className="text-amber-500 shrink-0 mt-0.5"
-                  size={18}
-                />
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                <ShieldAlert className="text-amber-600 shrink-0 mt-0.5" size={18} />
                 <div className="flex-1">
-                  <h4 className="text-xs font-bold text-amber-400 uppercase tracking-widest mb-1">
-                    Editing Restricted
-                  </h4>
-                  <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider leading-relaxed">
-                    Profile edits require direct authorization from the Command
-                    Center Administrator.
+                  <h4 className="text-sm font-medium text-amber-800 mb-1">Editing restricted</h4>
+                  <p className="text-sm text-amber-700/80 leading-relaxed">
+                    Profile edits need admin approval for your role.
                   </p>
 
                   {requestStatus === "Denied" && (
-                    <p className="text-[10px] font-mono text-red-400 uppercase tracking-wider mt-2 mb-2 font-bold">
+                    <p className="text-sm text-red-600 mt-2 mb-1 font-medium">
                       Your previous request was denied.
                     </p>
                   )}
@@ -294,12 +237,9 @@ const EditProfile = () => {
                   {!showRequestForm && (
                     <button
                       onClick={() => setShowRequestForm(true)}
-                      className="mt-3 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[10px] font-bold uppercase tracking-widest rounded border border-amber-500/50 transition-colors flex items-center gap-2"
+                      className="mt-3 px-3.5 py-2 bg-white hover:bg-amber-100/50 text-amber-700 text-xs font-medium rounded-md border border-amber-300 transition-colors flex items-center gap-1.5"
                     >
-                      <Send size={12} />{" "}
-                      {requestStatus === "Denied"
-                        ? "Request Again"
-                        : "Request Edit Authorization"}
+                      <Send size={12} /> {requestStatus === "Denied" ? "Request again" : "Request edit access"}
                     </button>
                   )}
                 </div>
@@ -307,39 +247,22 @@ const EditProfile = () => {
             )}
 
             {showRequestForm && (
-              <form
-                onSubmit={handleSendRequest}
-                className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg animate-in fade-in slide-in-from-top-2 shadow-inner"
-              >
-                <label className="block text-[10px] font-mono text-zinc-400 uppercase tracking-widest mb-2">
-                  Reason for Profile Modification Request:
-                </label>
+              <form onSubmit={handleSendRequest} className="p-4 bg-gray-50 border border-gray-200 rounded-lg animate-in fade-in slide-in-from-top-1">
+                <label className="label">Reason for the request</label>
                 <textarea
                   value={requestReason}
                   onChange={(e) => setRequestReason(e.target.value)}
-                  placeholder="E.g., I have been issued a new departmental contact number..."
-                  className="w-full h-24 bg-zinc-950 border border-zinc-700 rounded-md p-3 text-sm text-zinc-200 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 outline-none transition-all font-mono resize-none mb-3"
+                  placeholder="E.g., I have a new contact number…"
+                  className="input h-24 resize-none mb-3"
                   required
                 />
                 <div className="flex gap-2 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setShowRequestForm(false)}
-                    className="px-4 py-2 text-[10px] font-mono text-zinc-500 hover:text-zinc-300 uppercase tracking-widest transition-colors"
-                  >
+                  <button type="button" onClick={() => setShowRequestForm(false)} className="btn-secondary px-4 py-2 text-xs">
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingRequest || !requestReason.trim()}
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-950 text-[10px] font-bold uppercase tracking-widest rounded flex items-center gap-2 transition-colors shadow-[0_0_10px_rgba(245,158,11,0.2)]"
-                  >
-                    {isSubmittingRequest ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Send size={12} />
-                    )}
-                    Submit Request
+                  <button type="submit" disabled={isSubmittingRequest || !requestReason.trim()} className="btn-primary px-4 py-2 text-xs">
+                    {isSubmittingRequest ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                    Send request
                   </button>
                 </div>
               </form>
@@ -347,112 +270,63 @@ const EditProfile = () => {
           </div>
         )}
 
-        {/* Error Message */}
         {errorMsg && (
-          <div className="mb-6 p-3 bg-red-950/30 border-l-2 border-red-500 rounded-r-lg flex items-center gap-2">
-            <span className="text-xs font-mono text-red-400 uppercase tracking-wider">
-              {errorMsg}
-            </span>
+          <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {errorMsg}
           </div>
         )}
 
-        {/* Profile Form */}
-        <form onSubmit={handleSave} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Full Name */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                <User size={12} /> Full Legal Name
+        <form onSubmit={handleSave} className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="label flex items-center gap-1.5">
+                <User size={13} /> Full name
               </label>
-              <input
-                type="text"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                disabled={isFormLocked}
-                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg p-3.5 text-zinc-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-              />
+              <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} disabled={isFormLocked} className="input" />
             </div>
 
-            {/* Email (Read Only) */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                <Mail size={12} /> Contact Email (Locked)
+            <div>
+              <label className="label flex items-center gap-1.5">
+                <Mail size={13} /> Email (locked)
               </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                disabled={true}
-                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg p-3.5 text-zinc-500 outline-none transition-all cursor-not-allowed text-sm"
-              />
+              <input type="email" name="email" value={formData.email} disabled className="input" />
             </div>
 
-            {/* Phone */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                <Phone size={12} /> Registered Device Number
+            <div>
+              <label className="label flex items-center gap-1.5">
+                <Phone size={13} /> Phone number
               </label>
-              <input
-                type="text"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                disabled={isFormLocked}
-                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg p-3.5 text-zinc-200 focus:border-emerald-500 outline-none transition-all font-mono disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-              />
+              <input type="text" name="phone" value={formData.phone} onChange={handleChange} disabled={isFormLocked} className="input" />
             </div>
 
-            {/* Location */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                <MapPin size={12} /> Regional Jurisdiction
+            <div>
+              <label className="label flex items-center gap-1.5">
+                <MapPin size={13} /> Location
               </label>
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
-                  disabled={isFormLocked}
-                  placeholder="City"
-                  className="w-1/2 bg-zinc-900/50 border border-zinc-800 rounded-lg p-3.5 text-zinc-200 focus:border-emerald-500 outline-none transition-all disabled:opacity-50 text-sm"
-                />
-                <input
-                  type="text"
-                  name="state"
-                  value={formData.state}
-                  onChange={handleChange}
-                  disabled={isFormLocked}
-                  placeholder="State"
-                  className="w-1/2 bg-zinc-900/50 border border-zinc-800 rounded-lg p-3.5 text-zinc-200 focus:border-emerald-500 outline-none transition-all disabled:opacity-50 text-sm"
-                />
+                <input type="text" name="city" value={formData.city} onChange={handleChange} disabled={isFormLocked} placeholder="City" className="input w-1/2" />
+                <input type="text" name="state" value={formData.state} onChange={handleChange} disabled={isFormLocked} placeholder="State" className="input w-1/2" />
               </div>
             </div>
 
-            {/* Change Password */}
-            <div className="md:col-span-2 space-y-2 mt-4 pt-6 border-t border-zinc-800/50">
-              <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                Security Passcode Update
-              </label>
-              <p className="text-[10px] font-mono text-zinc-600 mb-2">
-                Leave blank to keep current passcode.
-              </p>
-              <div className="relative group">
+            <div className="md:col-span-2 pt-4 border-t border-gray-100">
+              <label className="label">New password</label>
+              <p className="text-xs text-gray-400 mb-2">Leave blank to keep your current password.</p>
+              <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   disabled={isFormLocked}
-                  className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg pl-4 pr-12 py-3.5 text-zinc-200 placeholder-zinc-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 outline-none transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  placeholder="Enter new passcode..."
+                  className="input pr-10"
+                  placeholder="Enter new password…"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={isFormLocked}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-emerald-400 transition-colors disabled:opacity-50 disabled:hover:text-zinc-500"
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -460,37 +334,27 @@ const EditProfile = () => {
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col-reverse sm:flex-row gap-4 pt-8 border-t border-zinc-800/50 mt-8">
-            <button
-              type="button"
-              onClick={() => navigate(basePath)}
-              className="px-6 py-4 rounded-lg font-mono text-[10px] uppercase tracking-widest text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-all border border-transparent hover:border-zinc-800 flex-1 flex justify-center items-center gap-2"
-            >
-              <ArrowLeft size={14} /> Back to Hub
+          <div className="flex flex-col-reverse sm:flex-row gap-3 pt-6 border-t border-gray-100">
+            <button type="button" onClick={() => navigate(basePath)} className="btn-secondary flex-1">
+              <ArrowLeft size={14} /> Back
             </button>
 
             <button
               type="submit"
               disabled={isFormLocked || isSaving || saveSuccess}
-              className={`flex-1 px-6 py-4 rounded-lg font-bold font-mono text-xs uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
-                saveSuccess
-                  ? "bg-emerald-950/50 text-emerald-400 border border-emerald-900"
-                  : "bg-emerald-600 hover:bg-emerald-500 text-zinc-950 shadow-[0_0_15px_rgba(16,185,129,0.15)] hover:shadow-[0_0_25px_rgba(16,185,129,0.3)]"
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`flex-1 ${saveSuccess ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg py-2.5 flex items-center justify-center gap-2 text-sm font-medium' : 'btn-primary'}`}
             >
               {isSaving ? (
                 <>
-                  <Loader2 size={16} className="animate-spin text-zinc-900" />{" "}
-                  Updating Data...
+                  <Loader2 size={16} className="animate-spin" /> Saving…
                 </>
               ) : saveSuccess ? (
                 <>
-                  <Check size={16} /> Profile Saved
+                  <Check size={16} /> Saved
                 </>
               ) : (
                 <>
-                  <Save size={16} /> Save Changes
+                  <Save size={16} /> Save changes
                 </>
               )}
             </button>

@@ -1,4 +1,13 @@
 import os
+import sys
+
+# Force UTF-8 stdout so the emoji in this script's print() statements don't
+# crash on Windows, where the default console encoding (cp1252) can't
+# represent them (same fix as app/main.py).
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 
@@ -39,9 +48,17 @@ def seed_database():
         db.add(zone_south)
         
         print("🚦 Building Departments...")
+        # NOTE: these names must line up with the category strings the
+        # frontend sends and app/api/routes_complaints.py's keyword-based
+        # department router (create_complaint's search_keyword logic).
         dept_roads = Department(name="Roads & Infrastructure", description="Handles potholes, roads, and bridges")
-        db.add(dept_roads)
-        
+        dept_water = Department(name="Water & Sanitation", description="Handles leaks, drainage, and sanitation")
+        dept_electrical = Department(name="Electrical & Lighting", description="Handles streetlights and power issues")
+        dept_safety = Department(name="Vandalism & Safety", description="Handles vandalism and public safety hazards")
+        dept_environment = Department(name="Environment & Parks", description="Handles parks, trees, and environmental issues")
+        dept_general = Department(name="General", description="Catch-all for unclassified reports")
+        db.add_all([dept_roads, dept_water, dept_electrical, dept_safety, dept_environment, dept_general])
+
         db.commit()
         db.refresh(zone_south)
         db.refresh(dept_roads)
@@ -117,18 +134,22 @@ def seed_database():
             {
                 "title": "Broken streetlights in park",
                 "description": "Three consecutive streetlights are out in the north end of the city park, creating a safety hazard.",
-                "category": "Electrical",          
-                "severity": "Medium",              
+                "category": "Electrical & Lighting",
+                "severity": "Medium",
                 "status": "Assigned",
-                "user_id": citizen_id              
+                "user_id": citizen_id,
+                "municipality_id": zone_south.id,
+                "department_id": dept_electrical.id,
             },
             {
                 "title": "Graffiti on bus stop",
                 "description": "Someone spray-painted the glass at the main street bus shelter.",
-                "category": "Vandalism",           
-                "severity": "Low",                 
+                "category": "Vandalism & Safety",
+                "severity": "Low",
                 "status": "Resolved",
-                "user_id": citizen_id              
+                "user_id": citizen_id,
+                "municipality_id": zone_south.id,
+                "department_id": dept_safety.id,
             }
         ]
 

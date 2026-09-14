@@ -1,6 +1,6 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_serializer
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 # 1. Base Schema: Properties shared across multiple schemas
 class ComplaintBase(BaseModel):
@@ -49,6 +49,18 @@ class ComplaintResponse(ComplaintBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    # This tells Pydantic to read the data even if it is an SQLAlchemy model, 
+    # This tells Pydantic to read the data even if it is an SQLAlchemy model,
     # converting the database object into a dictionary automatically.
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at", "updated_at")
+    def _serialize_as_utc(self, dt: Optional[datetime], _info):
+        # SQLite/func.now() stores a naive timestamp that's actually UTC, with
+        # no timezone marker attached. Without this, the frontend's
+        # `new Date(isoString)` treats it as LOCAL time instead of UTC and
+        # every displayed timestamp is off by the viewer's UTC offset.
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat()

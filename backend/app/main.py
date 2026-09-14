@@ -1,3 +1,12 @@
+import sys
+
+# Force UTF-8 stdout/stderr so emoji/unicode in print() and log statements never
+# crash requests on Windows, where the default console/file encoding (cp1252)
+# can't represent characters like the emoji used throughout this codebase.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,7 +20,7 @@ from app.models.resolution import Resolution
 
 # 2. Your existing database and route imports (Kept exactly as you had them)
 from app.db.database import engine, Base
-from app.api import routes_auth, routes_citizen, routes_department, routes_worker, routes_admin, routes_complaints, auth
+from app.api import routes_citizen, routes_department, routes_worker, routes_admin, routes_complaints, auth
 
 # ... the rest of your main.py code below ...
 # ... the rest of your main.py code stays the exact same ...
@@ -35,7 +44,8 @@ app.add_middleware(
 )
 
 # Register all role-based routers with the main application
-app.include_router(routes_auth.router)
+# (routes_auth.py was removed - it duplicated auth.py's /api/auth/* endpoints,
+# which are the ones the frontend actually calls, and was never wired up correctly.)
 app.include_router(routes_admin.router, prefix="/admin", tags=["Admin Operations"])
 app.include_router(routes_citizen.router)
 app.include_router(routes_department.router)

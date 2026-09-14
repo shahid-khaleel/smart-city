@@ -1,51 +1,54 @@
 import React, { useState } from 'react';
 import { MapPin, Clock, Camera, X, Users, AlertTriangle, Layers, Calendar } from 'lucide-react';
 
-// 1. Upgraded Helper function to separate Date and Time for better UI display
 const formatTimestamp = (isoString) => {
-  if (!isoString) return { date: "UNAVAILABLE", time: "--:--" };
-  if (isoString === "Just now") return { date: "TODAY", time: "JUST NOW" }; 
-  
+  if (!isoString) return { date: 'Unavailable', time: '' };
+  if (isoString === 'Just now') return { date: 'Today', time: 'Just now' };
+
   try {
     const d = new Date(isoString);
-    if (isNaN(d.getTime())) return { date: isoString, time: "" };
-    
-    const dateStr = new Intl.DateTimeFormat('en-GB', {
-      day: '2-digit', month: 'short', year: 'numeric'
-    }).format(d);
-    
-    const timeStr = new Intl.DateTimeFormat('en-GB', {
-      hour: '2-digit', minute: '2-digit', hour12: true
-    }).format(d);
+    if (isNaN(d.getTime())) return { date: isoString, time: '' };
+
+    // Always shown in IST, regardless of the viewer's own device/browser timezone.
+    const dateStr = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(d);
+    const timeStr = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }).format(d);
 
     return { date: dateStr, time: timeStr };
   } catch (e) {
-    return { date: isoString, time: "" };
+    return { date: isoString, time: '' };
   }
 };
 
 const ComplaintCard = ({ complaint }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { 
-    title = "Untitled Issue", 
-    description = "No description provided.", 
-    location = "Location pending GPS", 
-    date = "Just now", 
-    created_at = null, // Extracted from your database payload
-    priority = "low", 
-    status = "Pending",
+  const {
+    title = 'Untitled issue',
+    description = 'No description provided.',
+    location = 'Location pending',
+    date = 'Just now',
+    created_at = null,
+    priority = 'low',
+    status = 'Pending',
     image_url = null,
     report_count = 1,
-    category = "General"
+    category = 'General',
   } = complaint || {};
 
-  const getPriorityBadgeClass = (priorityLevel) => {
-    switch (priorityLevel?.toLowerCase()) {
-      case 'high': return 'bg-rose-950/50 text-rose-400 border-rose-900/50 shadow-[0_0_10px_rgba(225,29,72,0.2)]';
-      case 'medium': return 'bg-amber-950/50 text-amber-400 border-amber-900/50 shadow-[0_0_10px_rgba(251,191,36,0.2)]';
-      case 'low': return 'bg-emerald-950/50 text-emerald-400 border-emerald-900/50 shadow-[0_0_10px_rgba(52,211,153,0.2)]';
-      default: return 'bg-zinc-900 text-zinc-400 border-zinc-800';
+  const priorityBadge = (level) => {
+    switch (level?.toLowerCase()) {
+      case 'high': return 'badge-red';
+      case 'medium': return 'badge-amber';
+      case 'low': return 'badge-green';
+      default: return 'badge-gray';
+    }
+  };
+
+  const statusBadge = (s) => {
+    switch (s?.toLowerCase()) {
+      case 'resolved': return 'badge-green';
+      case 'assigned': return 'badge-blue';
+      default: return 'badge-amber';
     }
   };
 
@@ -54,136 +57,92 @@ const ComplaintCard = ({ complaint }) => {
 
   return (
     <>
-      {/* Enhanced Hover & Entrance Animation */}
-      <div className={`vault-card group relative flex flex-col h-full bg-zinc-950/50 border rounded-xl p-5 transition-all duration-500 ease-out hover:-translate-y-2 hover:shadow-2xl ${
-        isCluster 
-          ? 'border-rose-900/30 hover:border-rose-700/50 hover:shadow-[0_10px_40px_rgba(225,29,72,0.15)]' 
-          : 'border-zinc-800/80 hover:border-zinc-600/80 hover:shadow-[0_10px_40px_rgba(0,0,0,0.3)]'
-      } animate-in fade-in zoom-in-95 duration-500`}>
-        
-        {/* Dynamic Priority Badge */}
-        <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider border backdrop-blur-md transition-all duration-300 group-hover:scale-105 ${getPriorityBadgeClass(priority)}`}>
-          {priority} PRIORITY
-        </div>
-
-        <div className="pr-24 flex-grow">
-          
-          {/* Department / Category Tag */}
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-500 mb-3 uppercase tracking-widest transition-colors group-hover:text-zinc-400">
-            <Layers size={14} className="text-blue-500/70" />
+      <div className={`card group flex flex-col h-full p-4 transition-all duration-200 hover:-translate-y-0.5 animate-in fade-in zoom-in-95 duration-300 ${isCluster ? 'border-red-200' : ''}`}>
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <Layers size={12} className="text-gray-400" />
             {category}
           </div>
-
-          <h3 className="text-xl font-bold text-zinc-100 mb-2 truncate transition-colors group-hover:text-white" title={title}>
-            {title}
-          </h3>
-          
-          <p className="text-sm text-zinc-400 mb-4 line-clamp-2 leading-relaxed transition-colors group-hover:text-zinc-300">
-            {description}
-          </p>
-
-          {/* CLUSTER WARNING BADGE */}
-          {isCluster && (
-            <div className="flex items-center gap-2 mb-5 bg-gradient-to-r from-rose-950/40 to-transparent border-l-2 border-rose-500 text-rose-400 px-3 py-2 text-xs font-bold tracking-wide w-fit relative overflow-hidden transition-all duration-300 group-hover:from-rose-950/60">
-              <AlertTriangle size={14} className="animate-pulse drop-shadow-[0_0_5px_rgba(225,29,72,0.8)]" />
-              CLUSTER: VERIFIED BY {report_count} CITIZENS
-            </div>
-          )}
-
-          {/* Evidence Thumbnail Viewer */}
-          {image_url && (
-            <div 
-              onClick={() => setIsModalOpen(true)}
-              className="mb-5 relative h-36 w-full rounded-lg overflow-hidden border border-zinc-800/80 cursor-pointer group/image bg-zinc-900 flex items-center justify-center transition-all duration-500 group-hover:border-zinc-600"
-            >
-              <img 
-                src={image_url} 
-                alt="Complaint Evidence" 
-                className="object-cover w-full h-full opacity-60 group-hover/image:opacity-40 transition-all duration-700 group-hover/image:scale-110 group-hover/image:rotate-1"
-              />
-              <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover/image:opacity-100 transition-all duration-300 scale-90 group-hover/image:scale-100 backdrop-blur-sm bg-zinc-950/40">
-                <Camera size={28} className="text-emerald-400 mb-2 drop-shadow-md" />
-                <span className="text-[10px] font-mono text-emerald-300 uppercase tracking-widest bg-emerald-950/80 px-3 py-1.5 rounded-md border border-emerald-800 shadow-xl">
-                  Expand Evidence
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Location Data */}
-          <div className="flex flex-col gap-2.5 text-xs font-mono text-zinc-500 mt-auto bg-zinc-950/30 p-3 rounded-lg border border-zinc-800/50">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 overflow-hidden">
-                <MapPin size={14} className="text-emerald-500/70 shrink-0" />
-                <span className="truncate group-hover:text-zinc-400 transition-colors">{location || "Location pending GPS"}</span>
-              </div>
-              
-              {!isCluster && (
-                <div className="flex items-center gap-1.5 text-zinc-600 bg-zinc-900 px-2 py-0.5 rounded-full border border-zinc-800 shrink-0">
-                  <Users size={10} />
-                  <span className="text-[10px]">1 Report</span>
-                </div>
-              )}
-            </div>
-          </div>
+          <span className={`badge shrink-0 ${priorityBadge(priority)}`}>{priority}</span>
         </div>
 
-        {/* 2. Integrated Time & Status Footer */}
-        <div className="mt-4 pt-4 border-t border-zinc-800/80 flex justify-between items-end transition-colors group-hover:border-zinc-700/50">
-          
-          {/* UPGRADED DATE & TIME DISPLAY FOR WORKERS/DEPT */}
-          <div className="flex flex-col">
-            <span className="text-[8px] font-mono text-zinc-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
-              <Calendar size={10} /> Registered At
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono text-zinc-300 font-bold uppercase tracking-widest bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800 shadow-inner">
-                {timeInfo.date}
-              </span>
-              <span className="text-[10px] font-mono text-emerald-500 font-bold uppercase tracking-widest flex items-center gap-1">
-                <Clock size={10} /> {timeInfo.time}
+        <h3 className="text-sm font-semibold text-gray-900 mb-1 truncate" title={title}>
+          {title}
+        </h3>
+
+        <p className="text-xs text-gray-500 mb-3 line-clamp-2 leading-relaxed flex-grow-0">
+          {description}
+        </p>
+
+        {isCluster && (
+          <div className="flex items-center gap-1.5 mb-3 bg-red-50 border border-red-200 text-red-700 px-2.5 py-1.5 rounded-lg text-xs font-medium w-fit">
+            <AlertTriangle size={12} />
+            Reported by {report_count} citizens
+          </div>
+        )}
+
+        {image_url && (
+          <div
+            onClick={() => setIsModalOpen(true)}
+            className="mb-3 relative h-28 w-full rounded-lg overflow-hidden border border-gray-200 cursor-pointer group/image bg-gray-100"
+          >
+            <img
+              src={image_url}
+              alt="Complaint evidence"
+              className="object-cover w-full h-full transition-transform duration-500 group-hover/image:scale-105"
+            />
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/image:opacity-100 transition-opacity duration-200 bg-black/40">
+              <span className="flex items-center gap-1.5 text-xs font-medium text-white bg-black/50 px-2.5 py-1 rounded-md">
+                <Camera size={12} /> View photo
               </span>
             </div>
           </div>
-          
-          <div className="flex flex-col items-end">
-            <span className="text-[8px] uppercase tracking-widest font-bold text-zinc-600 mb-1.5">
-              Status / Action
+        )}
+
+        <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-auto bg-gray-50 p-2 rounded-lg border border-gray-100">
+          <MapPin size={12} className="text-gray-400 shrink-0" />
+          <span className="truncate">{location || 'Location pending'}</span>
+          {!isCluster && (
+            <span className="ml-auto flex items-center gap-1 text-gray-400 shrink-0">
+              <Users size={10} /> 1
             </span>
-            <span className={`text-[10px] px-2.5 py-1 rounded-md font-mono font-bold uppercase tracking-wider border shadow-sm transition-colors ${
-              status.toLowerCase() === 'resolved' 
-                ? 'bg-emerald-950/50 text-emerald-400 border-emerald-900/50' 
-                : status.toLowerCase() === 'assigned'
-                ? 'bg-blue-950/50 text-blue-400 border-blue-900/50'
-                : 'bg-amber-950/30 text-amber-500 border-amber-900/30'
-            }`}>
-              {status}
+          )}
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-end">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] text-gray-400 flex items-center gap-1">
+              <Calendar size={10} /> {timeInfo.date}
+            </span>
+            <span className="text-[10px] text-gray-400 flex items-center gap-1">
+              <Clock size={10} /> {timeInfo.time}
             </span>
           </div>
+
+          <span className={`badge ${statusBadge(status)}`}>{status}</span>
         </div>
       </div>
 
-      {/* FULL-SCREEN LIGHTBOX MODAL */}
       {isModalOpen && image_url && (
-        <div 
-          className="fixed inset-0 z-[500] flex items-center justify-center bg-zinc-950/90 backdrop-blur-lg p-4 animate-in fade-in duration-300"
+        <div
+          className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 p-4 animate-in fade-in duration-200"
           onClick={() => setIsModalOpen(false)}
         >
-          <div 
-            className="relative max-w-5xl w-full max-h-[90vh] flex items-center justify-center animate-in zoom-in-95 duration-300 slide-in-from-bottom-4"
-            onClick={(e) => e.stopPropagation()} 
+          <div
+            className="relative max-w-4xl w-full max-h-[90vh] flex items-center justify-center animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
           >
-            <img 
-              src={image_url} 
-              alt="Evidence Fullscreen" 
-              className="max-w-full max-h-[90vh] rounded-xl border border-zinc-700 shadow-[0_0_50px_rgba(0,0,0,0.8)] object-contain bg-zinc-900"
+            <img
+              src={image_url}
+              alt="Evidence fullscreen"
+              className="max-w-full max-h-[90vh] rounded-xl object-contain bg-white shadow-2xl"
             />
-            <button 
+            <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute -top-4 -right-4 md:-top-6 md:-right-6 bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-emerald-400 hover:border-emerald-500 rounded-full p-2.5 transition-all hover:scale-110 shadow-2xl hover:shadow-emerald-500/20 group"
-              title="Close Evidence Viewer"
+              className="absolute -top-3 -right-3 md:-top-4 md:-right-4 bg-white text-gray-600 hover:text-gray-900 rounded-full p-2 shadow-lg transition-transform hover:scale-105"
+              title="Close"
             >
-              <X size={24} className="transition-transform group-hover:rotate-90" />
+              <X size={20} />
             </button>
           </div>
         </div>

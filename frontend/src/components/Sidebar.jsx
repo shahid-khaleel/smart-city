@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Power,
+  LogOut,
   LayoutDashboard,
   Map,
   Zap,
@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import logo from '../assets/scc-logo.png'; // Official Branding Injected
+import logo from '../assets/logo.svg';
 
 const Sidebar = () => {
   const { logout, user } = useAuth();
@@ -23,15 +23,12 @@ const Sidebar = () => {
   const location = useLocation();
   const sidebarRef = useRef(null);
 
-  // 1. Roll-Out Drawer States
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isReportsOpen, setIsReportsOpen] = useState(false); // NEW: Dropdown State
+  const [isReportsOpen, setIsReportsOpen] = useState(false);
 
-  // 2. View tracking for active states
   const queryParams = new URLSearchParams(location.search);
   const currentView = queryParams.get("view") || "overview";
-  
-  // 3. Dynamic Base Path for the settings route
+
   const basePath = user?.role === "admin" ? "/admin" : "/dashboard";
 
   const handleLogout = () => {
@@ -40,202 +37,141 @@ const Sidebar = () => {
     navigate("/login");
   };
 
-  // Click-Outside Listener
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
         setIsExpanded(false);
-        setIsReportsOpen(false); // Close dropdown when clicking outside
+        setIsReportsOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const linkClass = (active) =>
+    `flex items-center h-10 rounded-lg text-sm transition-all duration-150 ${
+      active
+        ? "bg-brand-50 text-brand-700"
+        : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+    } ${isExpanded ? "px-3 justify-start" : "justify-center"}`;
+
+  const labelClass = `text-sm font-medium overflow-hidden whitespace-nowrap transition-all duration-200 ${
+    isExpanded ? "w-auto opacity-100 ml-3" : "w-0 opacity-0 ml-0"
+  }`;
 
   return (
     <div
       ref={sidebarRef}
-      className={`${isExpanded ? "w-64 shadow-2xl shadow-emerald-900/10" : "w-20"} h-screen bg-zinc-950 border-r border-zinc-800/80 flex flex-col justify-between py-6 transition-all duration-300 relative z-50`}
+      className={`${isExpanded ? "w-56 shadow-lg" : "w-16"} h-screen bg-white border-r border-gray-200 flex flex-col justify-between py-4 transition-all duration-200 relative z-50`}
     >
-      {/* Toggle Button */}
+      {/* Positioned at the vertical middle of the sidebar edge so it never collides with the logo */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="absolute -right-3 top-8 bg-zinc-800 hover:bg-emerald-600 text-zinc-400 hover:text-zinc-950 border border-zinc-700 rounded-full p-1 shadow-lg transition-all duration-200 z-[60]"
-        title={isExpanded ? "Close Menu" : "Open Menu"}
+        className="absolute -right-3 top-1/2 -translate-y-1/2 bg-white hover:bg-gray-50 text-gray-500 border border-gray-200 rounded-full p-1 shadow-sm transition-all duration-150 z-[60]"
+        title={isExpanded ? "Collapse menu" : "Expand menu"}
       >
-        {isExpanded ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+        {isExpanded ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
       </button>
 
-      {/* Main Scrollable Area (Allows dropdowns without breaking layout) */}
       <div className="flex-1 overflow-y-auto no-scrollbar">
-        
-        {/* BRANDED LOGO AREA */}
-        <div className={`flex items-center ${isExpanded ? "px-6 justify-start" : "justify-center"} mb-12 transition-all duration-300`}>
-          <img 
-            src={logo} 
-            alt="SCC Logo" 
-            className="w-10 h-10 min-w-[40px] rounded-xl border border-zinc-700 shadow-[0_0_15px_rgba(16,185,129,0.3)] object-cover" 
+        <div className={`flex items-center ${isExpanded ? "px-4 justify-start" : "justify-center"} mb-6 transition-all duration-200`}>
+          <img
+            src={logo}
+            alt="SmartCity Connect"
+            className="w-8 h-8 min-w-[32px] rounded-lg border border-gray-200 object-cover"
           />
-
-          <div className={`overflow-hidden whitespace-nowrap transition-all duration-300 flex flex-col justify-center ${isExpanded ? "w-32 opacity-100 ml-3" : "w-0 opacity-0 ml-0"}`}>
-            <h2 className="font-bold text-zinc-100 uppercase tracking-widest text-sm leading-tight font-mono">
-              SCC <span className="text-emerald-500">HUB</span>
-            </h2>
-            <p className="text-[9px] text-zinc-500 font-mono tracking-widest mt-0.5 uppercase">
-              SmartCity Connect
-            </p>
+          <div className={`overflow-hidden whitespace-nowrap transition-all duration-200 flex flex-col justify-center ${isExpanded ? "w-28 opacity-100 ml-2.5" : "w-0 opacity-0 ml-0"}`}>
+            <h2 className="font-semibold text-gray-900 text-xs leading-tight">SmartCity</h2>
+            <p className="text-[10px] text-gray-400 mt-0.5">Connect</p>
           </div>
         </div>
 
-        <nav className="flex flex-col px-3 space-y-2">
-          {/* ADMIN LINKS */}
+        <nav className="flex flex-col px-2.5 space-y-1">
           {user?.role === "admin" && (
             <>
-              <Link
-                to="/admin"
-                onClick={() => setIsExpanded(false)}
-                className={`flex items-center h-12 rounded-xl transition-all duration-200 ${
-                  currentView === "overview"
-                    ? "bg-zinc-800/80 text-emerald-400 shadow-inner border border-zinc-700/50"
-                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900"
-                } ${isExpanded ? "px-4 justify-start" : "justify-center"}`}
-                title="Analytics Overview"
-              >
-                <LayoutDashboard size={20} className="min-w-[20px]" />
-                <span className={`font-mono text-xs uppercase tracking-widest overflow-hidden whitespace-nowrap transition-all duration-300 ${isExpanded ? "w-auto opacity-100 ml-3" : "w-0 opacity-0 ml-0"}`}>
-                  Overview
-                </span>
+              <Link to="/admin" onClick={() => setIsExpanded(false)} className={linkClass(currentView === "overview")} title="Overview">
+                <LayoutDashboard size={17} className="min-w-[17px]" />
+                <span className={labelClass}>Overview</span>
               </Link>
 
-              <Link
-                to="/admin?view=fleet"
-                onClick={() => setIsExpanded(false)}
-                className={`flex items-center h-12 rounded-xl transition-all duration-200 ${
-                  currentView === "fleet"
-                    ? "bg-zinc-800/80 text-emerald-400 shadow-inner border border-zinc-700/50"
-                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900"
-                } ${isExpanded ? "px-4 justify-start" : "justify-center"}`}
-                title="Live Fleet Monitor"
-              >
-                <Map size={20} className="min-w-[20px]" />
-                <span className={`font-mono text-xs uppercase tracking-widest overflow-hidden whitespace-nowrap transition-all duration-300 ${isExpanded ? "w-auto opacity-100 ml-3" : "w-0 opacity-0 ml-0"}`}>
-                  Fleet Monitor
-                </span>
+              <Link to="/admin?view=fleet" onClick={() => setIsExpanded(false)} className={linkClass(currentView === "fleet")} title="Fleet map">
+                <Map size={17} className="min-w-[17px]" />
+                <span className={labelClass}>Fleet map</span>
               </Link>
 
-              {/* NESTED REPORTS MENU */}
               <div className="flex flex-col overflow-hidden">
                 <button
-                  onClick={() => { 
-                    setIsExpanded(true); 
-                    setIsReportsOpen(!isReportsOpen); 
+                  onClick={() => {
+                    setIsExpanded(true);
+                    setIsReportsOpen(!isReportsOpen);
                   }}
-                  className={`flex items-center h-12 rounded-xl transition-all duration-200 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 ${isExpanded ? "px-4 justify-start" : "justify-center"}`}
-                  title="Authorization Requests"
+                  className={`flex items-center h-10 rounded-lg text-sm transition-all duration-150 text-gray-500 hover:text-gray-800 hover:bg-gray-100 ${isExpanded ? "px-3 justify-start" : "justify-center"}`}
+                  title="Requests"
                 >
-                  <FileText size={20} className="min-w-[20px]" />
-                  <span className={`font-mono text-xs uppercase tracking-widest flex-1 text-left whitespace-nowrap transition-all duration-300 ${isExpanded ? "w-auto opacity-100 ml-3" : "w-0 opacity-0 ml-0"}`}>
+                  <FileText size={17} className="min-w-[17px]" />
+                  <span className={`text-sm font-medium flex-1 text-left whitespace-nowrap transition-all duration-200 ${isExpanded ? "w-auto opacity-100 ml-3" : "w-0 opacity-0 ml-0"}`}>
                     Requests
                   </span>
-                  {isExpanded && <ChevronDown size={14} className={`transition-transform duration-300 ${isReportsOpen ? "rotate-180" : ""}`} />}
+                  {isExpanded && <ChevronDown size={14} className={`transition-transform duration-200 ${isReportsOpen ? "rotate-180" : ""}`} />}
                 </button>
 
-                <div className={`flex flex-col pl-11 space-y-1 transition-all duration-300 ${isReportsOpen && isExpanded ? "max-h-40 opacity-100 mt-1" : "max-h-0 opacity-0 pointer-events-none"}`}>
+                <div className={`flex flex-col pl-10 space-y-0.5 transition-all duration-200 ${isReportsOpen && isExpanded ? "max-h-40 opacity-100 mt-1" : "max-h-0 opacity-0 pointer-events-none"}`}>
                   <Link
                     to="/admin?view=requests&filter=dept"
-                    className={`flex items-center h-10 text-[10px] font-mono uppercase tracking-widest transition-colors ${currentView === 'requests' && queryParams.get('filter') === 'dept' ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`flex items-center h-9 text-xs transition-colors ${currentView === 'requests' && queryParams.get('filter') === 'dept' ? 'text-brand-700 font-medium' : 'text-gray-500 hover:text-gray-800'}`}
                   >
-                    <Users size={14} className="mr-2 min-w-[14px]" /> Dept Requests
+                    <Users size={13} className="mr-2 min-w-[13px]" /> Department requests
                   </Link>
                   <Link
                     to="/admin?view=requests&filter=worker"
-                    className={`flex items-center h-10 text-[10px] font-mono uppercase tracking-widest transition-colors ${currentView === 'requests' && queryParams.get('filter') === 'worker' ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`flex items-center h-9 text-xs transition-colors ${currentView === 'requests' && queryParams.get('filter') === 'worker' ? 'text-brand-700 font-medium' : 'text-gray-500 hover:text-gray-800'}`}
                   >
-                    <HardHat size={14} className="mr-2 min-w-[14px]" /> Worker Requests
+                    <HardHat size={13} className="mr-2 min-w-[13px]" /> Worker requests
                   </Link>
                 </div>
               </div>
             </>
           )}
 
-          {/* CITIZEN LINKS */}
           {user?.role === "citizen" && (
             <>
               <Link
                 to="/dashboard"
                 onClick={() => setIsExpanded(false)}
-                className={`flex items-center h-12 rounded-xl transition-all duration-200 ${
-                  (currentView === "overview" || currentView === "report")
-                    ? "bg-zinc-800/80 text-emerald-400 shadow-inner border border-zinc-700/50"
-                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900"
-                } ${isExpanded ? "px-4 justify-start" : "justify-center"}`}
-                title="New Report"
+                className={linkClass(currentView === "overview" || currentView === "report")}
+                title="New report"
               >
-                <Zap size={20} className="min-w-[20px]" />
-                <span className={`font-mono text-xs uppercase tracking-widest overflow-hidden whitespace-nowrap transition-all duration-300 ${isExpanded ? "w-auto opacity-100 ml-3" : "w-0 opacity-0 ml-0"}`}>
-                  New Report
-                </span>
+                <Zap size={17} className="min-w-[17px]" />
+                <span className={labelClass}>New report</span>
               </Link>
 
               <Link
                 to="/dashboard?view=logs"
                 onClick={() => setIsExpanded(false)}
-                className={`flex items-center h-12 rounded-xl transition-all duration-200 ${
-                  currentView === "logs"
-                    ? "bg-zinc-800/80 text-emerald-400 shadow-inner border border-zinc-700/50"
-                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900"
-                } ${isExpanded ? "px-4 justify-start" : "justify-center"}`}
-                title="My Active Logs"
+                className={linkClass(currentView === "logs")}
+                title="My reports"
               >
-                <History size={20} className="min-w-[20px]" />
-                <span className={`font-mono text-xs uppercase tracking-widest overflow-hidden whitespace-nowrap transition-all duration-300 ${isExpanded ? "w-auto opacity-100 ml-3" : "w-0 opacity-0 ml-0"}`}>
-                  My Logs
-                </span>
+                <History size={17} className="min-w-[17px]" />
+                <span className={labelClass}>My reports</span>
               </Link>
             </>
           )}
         </nav>
       </div>
 
-      {/* BOTTOM SECTION: Settings & Power Buttons */}
-      <div className="flex flex-col space-y-2 px-3 pt-4 border-t border-zinc-800/80">
-        
-        <Link
-          to={`${basePath}?view=settings`}
-          onClick={() => setIsExpanded(false)}
-          className={`group relative flex items-center h-12 rounded-xl transition-all duration-200 ${
-            currentView === "settings"
-              ? "bg-zinc-800/80 text-emerald-400 shadow-inner border border-zinc-700/50"
-              : "bg-transparent text-zinc-600 hover:text-emerald-400 hover:bg-zinc-900"
-          } ${isExpanded ? "px-4 justify-start" : "justify-center"}`}
-          title="Edit Profile"
-        >
-          <Settings
-            size={22}
-            className={`min-w-[22px] transition-colors duration-300 relative z-10 ${currentView === "settings" ? "text-emerald-400" : "text-zinc-600 group-hover:text-emerald-400"}`}
-          />
-          <span className={`font-mono text-xs uppercase tracking-widest transition-all duration-300 relative z-10 overflow-hidden whitespace-nowrap ${isExpanded ? "w-auto opacity-100 ml-3" : "w-0 opacity-0 ml-0"}`}>
-            Settings
-          </span>
+      <div className="flex flex-col space-y-1 px-2.5 pt-3 border-t border-gray-200">
+        <Link to={`${basePath}?view=settings`} onClick={() => setIsExpanded(false)} className={linkClass(currentView === "settings")} title="Profile settings">
+          <Settings size={17} className="min-w-[17px]" />
+          <span className={labelClass}>Settings</span>
         </Link>
 
         <button
           onClick={handleLogout}
-          className={`group relative flex items-center h-12 rounded-xl bg-transparent transition-all duration-300 outline-none w-full ${isExpanded ? "px-4 justify-start" : "justify-center"}`}
-          title="Terminate Session"
+          className={`flex items-center h-10 rounded-lg text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all duration-150 w-full ${isExpanded ? "px-3 justify-start" : "justify-center"}`}
+          title="Log out"
         >
-          <div className="absolute inset-0 rounded-xl bg-emerald-500/0 group-hover:bg-emerald-500/10 group-hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all duration-300 pointer-events-none" />
-
-          <Power
-            size={22}
-            className="min-w-[22px] text-zinc-600 group-hover:text-emerald-400 transition-colors duration-300 relative z-10"
-          />
-
-          <span className={`font-mono text-xs text-zinc-600 group-hover:text-emerald-400 uppercase tracking-widest transition-all duration-300 relative z-10 overflow-hidden whitespace-nowrap ${isExpanded ? "w-auto opacity-100 ml-3" : "w-0 opacity-0 ml-0"}`}>
-            Terminate
-          </span>
+          <LogOut size={17} className="min-w-[17px]" />
+          <span className={labelClass}>Log out</span>
         </button>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { CheckCircle, Truck, Wrench, Loader2, Navigation, AlertOctagon, Camera, X, Upload } from "lucide-react";
-import { useLocation } from "react-router-dom"; 
+import { useLocation } from "react-router-dom";
 import ComplaintCard from "../components/ComplaintCard";
 import Sidebar from "../components/Sidebar";
 import { useAuth } from "../context/AuthContext";
@@ -9,20 +9,21 @@ import LiveClock from "../components/LiveClock";
 
 const WorkerDashboard = () => {
   const { user } = useAuth();
-  
-  // --- ADDED: READ THE URL ---
+
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const currentView = queryParams.get("view") || "tasks";
 
   const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("Active"); 
-  
-  // New States for the Camera/Resolution Workflow
+  const [activeTab, setActiveTab] = useState("Active");
+
   const [resolvingTaskId, setResolvingTaskId] = useState(null);
+  const [resolutionFile, setResolutionFile] = useState(null);
   const [resolutionPreview, setResolutionPreview] = useState(null);
+  const [resolutionNotes, setResolutionNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resolveError, setResolveError] = useState("");
 
   useEffect(() => {
     fetchAssignments();
@@ -31,7 +32,7 @@ const WorkerDashboard = () => {
   const fetchAssignments = async () => {
     try {
       const token = localStorage.getItem("token") || localStorage.getItem("access_token");
-      const response = await fetch("http://localhost:8000/complaints/", {
+      const response = await fetch("/complaints/", {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -45,11 +46,11 @@ const WorkerDashboard = () => {
         title: dbItem.title,
         description: dbItem.description,
         category: dbItem.category || "General",
-        location: dbItem.address || "Location pending GPS",
+        location: dbItem.address || "Location pending",
         lat: dbItem.location_lat,
         lng: dbItem.location_lng,
         date: "Recently",
-        created_at: dbItem.created_at, // FIX: Maps the real DB timestamp to the card
+        created_at: dbItem.created_at,
         priority: dbItem.priority || dbItem.severity?.toLowerCase() || "medium",
         status: dbItem.status || "Assigned",
         image_url: dbItem.image_url,
@@ -64,43 +65,75 @@ const WorkerDashboard = () => {
     }
   };
 
-  // Handle Image Selection/Capture
   const handleImageCapture = (e) => {
     const file = e.target.files[0];
     if (file) {
+      setResolutionFile(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setResolutionPreview(reader.result);
-      };
+      reader.onloadend = () => setResolutionPreview(reader.result);
       reader.readAsDataURL(file);
     }
   };
 
-  // Final Submit to Database
   const submitResolution = async () => {
     if (!resolvingTaskId) return;
+
+    if (!resolutionNotes.trim()) {
+      setResolveError("Please describe how the issue was resolved.");
+      return;
+    }
+
     setIsSubmitting(true);
-    
+    setResolveError("");
+
     try {
       const token = localStorage.getItem("token") || localStorage.getItem("access_token");
-      
-      const response = await fetch(`http://localhost:8000/complaints/${resolvingTaskId}/status?status=Resolved`, {
-        method: "POST", 
-        headers: { Authorization: `Bearer ${token}` },
+
+      // 1. Upload the proof photo to Cloudinary first (same flow ComplaintForm
+      //    already uses for citizen report photos) so we get a real URL to store.
+      let proofImageUrl = null;
+      if (resolutionFile) {
+        const cloudData = new FormData();
+        cloudData.append("file", resolutionFile);
+        cloudData.append("upload_preset", "smartcity_connectAI");
+        cloudData.append("cloud_name", "njtyl4tg");
+
+        const cloudResponse = await fetch("https://api.cloudinary.com/v1_1/njtyl4tg/image/upload", {
+          method: "POST",
+          body: cloudData,
+        });
+
+        if (!cloudResponse.ok) throw new Error("Photo upload failed.");
+        const cloudResult = await cloudResponse.json();
+        proofImageUrl = cloudResult.secure_url;
+      }
+
+      // 2. Submit the actual resolution (notes + proof photo) to the real endpoint.
+      const response = await fetch(`/worker/complaints/${resolvingTaskId}/resolve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ notes: resolutionNotes.trim(), proof_image_url: proofImageUrl }),
       });
 
-      if (!response.ok) throw new Error("Failed to update status");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Failed to submit resolution.");
+      }
 
       setAssignments((prev) =>
         prev.map((task) => (task.id === resolvingTaskId ? { ...task, status: "Resolved" } : task))
       );
-      
-      // Close modal and reset
+
       setResolvingTaskId(null);
+      setResolutionFile(null);
       setResolutionPreview(null);
+      setResolutionNotes("");
     } catch (error) {
       console.error("Error resolving task:", error);
-      alert("Network error: Could not verify resolution.");
+      setResolveError(error.message || "Could not submit resolution. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -123,106 +156,85 @@ const WorkerDashboard = () => {
   });
 
   return (
-    <div className="flex h-screen bg-zinc-950 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       <div className="hidden md:block">
         <Sidebar />
       </div>
 
-      <main className="flex-1 overflow-y-auto p-4 md:p-10 relative">
-        <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] bg-emerald-900/10 blur-[120px] rounded-full pointer-events-none"></div>
-
-        <div className="max-w-4xl mx-auto space-y-6 relative z-10">
-          
+      <main className="flex-1 overflow-y-auto p-4 md:p-7">
+        <div className="max-w-2xl mx-auto space-y-5">
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-800 pb-6 mt-4 md:mt-0">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-zinc-900 border border-zinc-700 rounded-xl text-emerald-500 shadow-inner">
-                <Truck size={32} />
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 border-b border-gray-200 pb-4 mt-4 md:mt-0">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white border border-gray-200 rounded-lg text-brand-600">
+                <Truck size={20} />
               </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-zinc-100 uppercase tracking-widest">
-                  Field <span className="text-emerald-500">Unit</span>
-                </h1>
-                <p className="text-xs font-mono text-zinc-400 mt-1">
-                  UNIT ID: {user?.name?.toUpperCase() || "ALPHA-42"} 
-                  {currentView === 'settings' ? " // IDENTITY MANAGEMENT" : " // ACTIVE DISPATCH"}
+                <h1 className="text-lg font-semibold text-gray-900">Field tasks</h1>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {user?.name || "Field worker"}
+                  {currentView === 'settings' ? " · Profile settings" : " · Active dispatch"}
                 </p>
               </div>
             </div>
 
-            {/* INTEGRATED LIVE CLOCK */}
-            <div className="flex items-center gap-4">
-              <LiveClock />
-            </div>
+            <LiveClock />
           </div>
 
-          {/* DYNAMIC INTERCEPTOR */}
           {currentView === "settings" ? (
-            /* VIEW 1: SETTINGS / PROFILE EDITOR */
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <EditProfile />
-            </div>
+            <EditProfile />
           ) : (
-            /* VIEW 2: STANDARD FIELD UNIT DASHBOARD */
-            <div className="space-y-6 animate-in fade-in duration-300">
-              
+            <div className="space-y-4 animate-in fade-in duration-300">
               {/* Tabs */}
-              <div className="flex gap-2 bg-zinc-900/50 p-1 rounded-lg border border-zinc-800">
+              <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
                 <button
                   onClick={() => setActiveTab("Active")}
-                  className={`flex-1 py-3 text-xs md:text-sm font-mono uppercase tracking-widest rounded-md transition-all flex items-center justify-center gap-2 ${
-                    activeTab === "Active"
-                      ? "bg-zinc-800 text-zinc-100 shadow-md border border-zinc-700"
-                      : "text-zinc-500 hover:text-zinc-300"
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                    activeTab === "Active" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
-                  <AlertOctagon size={16} /> Active Tasks
+                  <AlertOctagon size={15} /> Active
                 </button>
                 <button
                   onClick={() => setActiveTab("Resolved")}
-                  className={`flex-1 py-3 text-xs md:text-sm font-mono uppercase tracking-widest rounded-md transition-all flex items-center justify-center gap-2 ${
-                    activeTab === "Resolved"
-                      ? "bg-zinc-800 text-emerald-400 shadow-md border border-zinc-700"
-                      : "text-zinc-500 hover:text-zinc-300"
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                    activeTab === "Resolved" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
-                  <CheckCircle size={16} /> Resolved
+                  <CheckCircle size={14} /> Resolved
                 </button>
               </div>
 
-              {/* Assignments List */}
               {isLoading ? (
-                <div className="flex flex-col items-center justify-center p-20 text-emerald-500 gap-4">
-                  <Loader2 className="animate-spin" size={40} />
-                  <p className="font-mono text-sm uppercase tracking-widest text-zinc-500">Syncing with dispatch...</p>
+                <div className="flex flex-col items-center justify-center p-16 text-brand-600 gap-3">
+                  <Loader2 className="animate-spin" size={28} />
+                  <p className="text-sm text-gray-400">Loading assignments…</p>
                 </div>
               ) : (
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-4">
                   {filteredAssignments.length === 0 ? (
-                    <div className="p-12 text-center border-2 border-dashed border-zinc-800 rounded-xl bg-zinc-900/20">
-                      <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">
-                        No {activeTab.toLowerCase()} assignments.
-                      </p>
+                    <div className="p-10 text-center border-2 border-dashed border-gray-200 rounded-xl bg-white">
+                      <p className="text-gray-400 text-sm">No {activeTab.toLowerCase()} assignments</p>
                     </div>
                   ) : (
                     filteredAssignments.map((task) => (
-                      <div key={task.id} className="relative group flex flex-col h-full animate-in fade-in slide-in-from-bottom-4">
+                      <div key={task.id} className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-1">
                         <ComplaintCard complaint={task} />
 
                         <div className="mt-2 flex flex-col sm:flex-row gap-2">
-                          <button 
+                          <button
                             onClick={() => openInOSM(task.lat, task.lng)}
-                            className="flex-1 bg-zinc-900 border border-zinc-800 hover:border-blue-500/50 hover:bg-blue-950/30 text-zinc-300 hover:text-blue-400 py-4 rounded-lg font-mono text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg"
+                            className="flex-1 bg-white border border-gray-200 hover:border-brand-300 hover:bg-brand-50 text-gray-600 hover:text-brand-700 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5"
                           >
-                            <Navigation size={16} /> Navigate
+                            <Navigation size={15} /> Navigate
                           </button>
 
                           {task.status.toLowerCase() !== "resolved" && (
-                            <button 
+                            <button
                               onClick={() => setResolvingTaskId(task.id)}
-                              className="flex-[2] bg-emerald-600/90 hover:bg-emerald-500 border border-emerald-500/50 text-white py-4 rounded-lg font-mono text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                              className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5"
                             >
-                              <Camera size={16} /> Upload Proof & Resolve
+                              <Camera size={15} /> Upload proof & resolve
                             </button>
                           )}
                         </div>
@@ -233,59 +245,80 @@ const WorkerDashboard = () => {
               )}
             </div>
           )}
-
         </div>
       </main>
 
-      {/* RESOLUTION CAMERA MODAL */}
+      {/* Resolution modal */}
       {resolvingTaskId && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-zinc-950/90 backdrop-blur-md p-4 animate-in fade-in duration-200">
-          <div className="bg-zinc-900 border border-zinc-700 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 relative">
-            
-            <button 
-              onClick={() => { setResolvingTaskId(null); setResolutionPreview(null); }}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-white bg-zinc-800 p-1.5 rounded-full z-10"
+        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 relative">
+            <button
+              onClick={() => {
+                setResolvingTaskId(null);
+                setResolutionFile(null);
+                setResolutionPreview(null);
+                setResolutionNotes("");
+                setResolveError("");
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 p-1.5 rounded-full z-10 transition-colors"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
 
-            <div className="p-6 border-b border-zinc-800">
-              <h2 className="text-xl font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <CheckCircle className="text-emerald-500" /> Verify Resolution
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <CheckCircle className="text-emerald-600" size={20} /> Confirm resolution
               </h2>
-              <p className="text-zinc-400 text-sm mt-2">
-                Please provide photographic evidence that the task has been completed before closing this ticket.
+              <p className="text-gray-500 text-sm mt-1.5">
+                Describe the fix and attach a photo showing the completed work.
               </p>
             </div>
 
-            <div className="p-6 bg-zinc-950/50 flex flex-col items-center">
+            <div className="p-6 bg-gray-50 flex flex-col gap-4">
+              {resolveError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {resolveError}
+                </div>
+              )}
+
+              <div>
+                <label className="label">Resolution notes</label>
+                <textarea
+                  value={resolutionNotes}
+                  onChange={(e) => setResolutionNotes(e.target.value)}
+                  rows="3"
+                  className="input resize-none"
+                  placeholder="e.g., Replaced the faulty bulb and tested the streetlight — working normally now."
+                />
+              </div>
+
               {resolutionPreview ? (
-                <div className="relative w-full h-48 rounded-lg overflow-hidden border border-zinc-700">
+                <div className="relative w-full h-40 rounded-lg overflow-hidden border border-gray-200">
                   <img src={resolutionPreview} alt="Resolution" className="w-full h-full object-cover" />
-                  <button 
-                    onClick={() => setResolutionPreview(null)}
-                    className="absolute bottom-2 right-2 bg-rose-600 text-white p-2 rounded-lg text-xs font-bold uppercase shadow-lg flex items-center gap-1 hover:bg-rose-500"
+                  <button
+                    onClick={() => { setResolutionFile(null); setResolutionPreview(null); }}
+                    className="absolute bottom-2 right-2 bg-white text-gray-700 p-2 rounded-lg text-xs font-medium shadow-md flex items-center gap-1 hover:bg-gray-50 transition-colors"
                   >
-                    <Upload size={14}/> Retake
+                    <Upload size={13} /> Retake
                   </button>
                 </div>
               ) : (
-                <label className="w-full h-48 border-2 border-dashed border-zinc-700 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-950/20 transition-all group">
-                  <Camera size={40} className="text-zinc-500 group-hover:text-emerald-400 mb-3 transition-colors" />
-                  <span className="text-zinc-400 font-mono text-sm uppercase tracking-widest group-hover:text-emerald-300">Tap to Open Camera</span>
+                <label className="w-full h-40 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-brand-400 hover:bg-brand-50/50 transition-all group">
+                  <Camera size={28} className="text-gray-400 group-hover:text-brand-500 mb-2.5 transition-colors" />
+                  <span className="text-gray-500 text-sm group-hover:text-brand-600 transition-colors">Tap to open camera</span>
                   <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageCapture} />
                 </label>
               )}
             </div>
 
-            <div className="p-6 border-t border-zinc-800 flex gap-3">
-              <button 
+            <div className="p-6 border-t border-gray-100">
+              <button
                 onClick={() => submitResolution()}
-                disabled={!resolutionPreview || isSubmitting}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 uppercase tracking-widest text-sm transition-colors"
+                disabled={!resolutionNotes.trim() || isSubmitting}
+                className="btn-primary w-full py-3"
               >
                 {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Wrench size={18} />}
-                Confirm & Resolve
+                Confirm & resolve
               </button>
             </div>
           </div>

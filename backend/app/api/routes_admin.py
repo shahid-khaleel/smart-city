@@ -1,12 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 
-# These imports reference files we will build in the upcoming steps
 from app.db.database import get_db
 from app.schemas.complaint_schema import ComplaintResponse
-from app.schemas.user_schema import UserResponse, UserUpdate
-from app.crud import crud_user, crud_complaint
+from app.schemas.user_schema import UserResponse
 from app.core import security
 
 router = APIRouter()

@@ -10,6 +10,7 @@ from app.models.jurisdiction import Department, Municipality
 from app.api.auth import get_current_user
 from app.schemas.complaint_schema import ComplaintCreate, ComplaintResponse
 from app.services.ai_service import analyze_complaint_severity
+from ai_module.classifier import classify_issue
 from pydantic import BaseModel
 from typing import Optional
 
@@ -191,31 +192,12 @@ def update_complaint_status(
 
 @router.post("/predict-category")
 def predict_ticket_category(request: AIPredictRequest):
-    print(f"🧠 AI Analyzing Context: '{request.description}'")
-    if request.image_url:
-        print("📸 AI Vision: Image data detected in payload.")
-
-    text = request.description.lower()
-    
-    # 1. ROADS & INFRASTRUCTURE
-    if any(word in text for word in ["pothole", "sinkhole", "road", "street", "crack", "asphalt", "sidewalk", "bridge"]):
-        predicted_category = "Roads & Infrastructure"
-        
-    # 2. ELECTRICAL & LIGHTING
-    elif any(word in text for word in ["light", "power", "wire", "pole", "electricity", "dark", "spark"]):
-        predicted_category = "Electrical & Lighting"
-        
-    # 3. WATER & SANITATION
-    elif any(word in text for word in ["water", "pipe", "leak", "flood", "drain", "sewer", "trash", "garbage"]):
-        predicted_category = "Water & Sanitation"
-        
-    # 4. VANDALISM & SAFETY
-    elif any(word in text for word in ["graffiti", "paint", "glass", "broken", "vandalism", "damage"]):
-        predicted_category = "Vandalism"
-        
-    # 5. FALLBACK
-    else:
-        predicted_category = "General"
-
-    print(f"🎯 AI Prediction Complete: Routing to {predicted_category}")
+    """
+    Real AI categorization: runs the description through the local zero-shot
+    classifier (ai_module/classifier.py) instead of a hardcoded keyword list.
+    Note: this only ever looks at the text - there's no image/vision model
+    wired up anywhere in this codebase, so a photo never affects the result
+    even though it's accepted in the request payload.
+    """
+    predicted_category = classify_issue(request.description)
     return {"predicted_category": predicted_category}

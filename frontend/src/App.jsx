@@ -5,7 +5,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { Shield } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
 // Lazy-loaded pages for optimal performance and chunk splitting
@@ -28,11 +28,9 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-4">
-        <Shield size={48} className="text-emerald-500 animate-pulse" />
-        <p className="text-emerald-500 font-mono text-sm uppercase tracking-widest animate-pulse">
-          ESTABLISHING SECURE CONNECTION...
-        </p>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3">
+        <Loader2 size={32} className="text-brand-600 animate-spin" />
+        <p className="text-gray-500 text-sm">Loading…</p>
       </div>
     );
   }
@@ -74,8 +72,9 @@ function App() {
       <AuthProvider>
         <Suspense
           fallback={
-            <div className="flex h-screen items-center justify-center bg-zinc-950 text-emerald-500 font-mono text-sm tracking-widest">
-              INITIALIZING VAULT...
+            <div className="flex h-screen items-center justify-center bg-gray-50 text-gray-400 text-sm gap-2">
+              <Loader2 size={20} className="animate-spin text-brand-600" />
+              Loading…
             </div>
           }
         >

@@ -4,13 +4,18 @@ from transformers import pipeline
 # (This runs locally; it will download a ~1.6GB model on first execution)
 classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
 
-# Define the exact departments or categories your SmartCity uses
+# Define the exact departments your SmartCity uses. These strings must match
+# app.models.jurisdiction.Department rows exactly (see seed.py) - the
+# department-routing logic in routes_complaints.py matches on these names,
+# so a mismatch here means a "successfully classified" complaint still
+# silently falls back to the default department.
 CATEGORIES = [
-    "Roads & Transport", 
-    "Sanitation & Waste", 
-    "Water & Power", 
-    "Public Safety", 
-    "Vandalism & Maintenance"
+    "Roads & Infrastructure",
+    "Water & Sanitation",
+    "Electrical & Lighting",
+    "Vandalism & Safety",
+    "Environment & Parks",
+    "Other / Unclassified",
 ]
 
 def classify_issue(description: str) -> str:

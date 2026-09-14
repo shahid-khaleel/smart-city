@@ -1,350 +1,229 @@
-import React, { useState, useEffect } from 'react';
-import { Key, Mail, Loader2, Lock, ArrowLeft, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Mail, Loader2, Lock, ArrowLeft, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
-import logo from '../assets/scc-logo.png';
+import { Link } from 'react-router-dom';
+import logo from '../assets/logo.svg';
+
+const ROLE_TABS = ['Citizen/Resident', 'Dept', 'Worker', 'Admin'];
 
 function Login() {
   const { login, isLoading } = useAuth();
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('Citizen/Resident');
-  const navigate = useNavigate();
 
-  // 2FA & UI States
+  // 2FA states
   const [showOTP, setShowOTP] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
-  // FIX: Added the missing state variable for phone-number 2FA routing
   const [pendingEmail, setPendingEmail] = useState('');
-  
-  // Ambient Lighting & Animation States
-  const [uiState, setUiState] = useState('idle'); // 'idle', 'typing', 'loading', 'success', 'error'
-  const [isTransitioning, setIsTransitioning] = useState(false);
-
-  // Dynamic typing effects
-  useEffect(() => {
-    if (isVerifying || isLoading || uiState === 'success' || uiState === 'loading') return;
-    
-    const isTyping = showOTP 
-      ? otpCode.length > 0 
-      : (credentials.email.length > 0 || credentials.password.length > 0);
-    
-    if (isTyping && uiState !== 'error') {
-      setUiState('typing');
-    } else if (!isTyping && uiState !== 'error') {
-      setUiState('idle');
-    }
-  }, [credentials, otpCode, showOTP, uiState, isVerifying, isLoading]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setCredentials(prev => ({ ...prev, [name]: value }));
-    if (uiState === 'error') {
-      setError('');
-      setUiState('typing');
-    }
+    setCredentials((prev) => ({ ...prev, [name]: value }));
+    if (error) setError('');
   };
 
-  // ----------------------------------------------------
-  // NAVIGATION INTERCEPTOR: Triggers the Spark Animation
-  // ----------------------------------------------------
-  const triggerWarpTransition = (token) => {
-    setUiState('success');
-    
-    // 1. Save token silently
+  const goToDashboard = (token) => {
     if (token) localStorage.setItem('token', token);
-    
-    // 2. Trigger the massive full-screen animation overlay
-    setIsTransitioning(true);
-    
-    // 3. Wait exactly 2 seconds for the animation to expand, then route!
-    setTimeout(() => {
-      window.location.href = '/dashboard';
-    }, 2000);
+    window.location.href = '/dashboard';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!credentials.email || !credentials.password) {
-      setError('System requires both identification and passcode.');
-      setUiState('error');
+      setError('Please enter both your email/phone and password.');
       return;
     }
 
-    setUiState('loading');
     const result = await login(credentials);
 
     if (result.require_2fa) {
       setShowOTP(true);
-      setPendingEmail(result.email); // FIX: Safely stores the resolved email backend mapping
+      setPendingEmail(result.email);
       setError('');
-      setUiState('idle'); 
     } else if (!result.success) {
-      setError(result.error || 'Authentication protocol failed.');
-      setUiState('error');
+      setError(result.error || 'Login failed.');
     } else {
-      // Immediate Access (Admins/Workers)
-      triggerWarpTransition(null);
+      goToDashboard(null);
     }
   };
 
   const handleVerifyOTP = async (e) => {
     e.preventDefault();
     if (otpCode.length !== 6) {
-      setError('Passcode must be exactly 6 digits.');
-      setUiState('error');
+      setError('Enter the 6-digit code.');
       return;
     }
 
     setIsVerifying(true);
-    setUiState('loading');
     setError('');
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/verify-otp', {
+      const response = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingEmail, otp_code: otpCode }) // FIX: Uses pendingEmail instead of raw input
+        body: JSON.stringify({ email: pendingEmail, otp_code: otpCode }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.detail || 'Invalid or expired verification code.');
-        setUiState('error');
+        setError(data.detail || 'Invalid or expired code.');
         setIsVerifying(false);
         return;
       }
 
-      // 2FA Success (Citizens)
-      triggerWarpTransition(data.access_token);
-
+      goToDashboard(data.access_token);
     } catch (err) {
-      setError('Network error during verification protocol.');
-      setUiState('error');
+      setError('Network error while verifying the code.');
       setIsVerifying(false);
     }
   };
 
-  // --- DYNAMIC AMBIENT LIGHTING ENGINE ---
-  const getCardStyles = () => {
-    switch (uiState) {
-      case 'typing': return 'border-blue-500/50 shadow-[0_0_50px_rgba(59,130,246,0.15)] bg-blue-950/10';
-      case 'loading': return 'border-amber-500/50 shadow-[0_0_50px_rgba(245,158,11,0.15)] bg-amber-950/10';
-      case 'success': return 'border-emerald-500/50 shadow-[0_0_50px_rgba(16,185,129,0.15)] bg-emerald-950/10';
-      case 'error': return 'border-red-500/50 shadow-[0_0_50px_rgba(239,68,68,0.15)] bg-red-950/10';
-      default: return 'border-zinc-800 shadow-[0_0_30px_rgba(0,0,0,0.5)] bg-zinc-950/80';
-    }
-  };
-
-  const getOrbColor = () => {
-    switch (uiState) {
-      case 'typing': return 'bg-blue-600/20';
-      case 'loading': return 'bg-amber-600/20 animate-pulse';
-      case 'success': return 'bg-emerald-600/20';
-      case 'error': return 'bg-red-600/20';
-      default: return 'bg-emerald-900/10';
-    }
-  };
-
-  const getInputClass = () => {
-    if (uiState === 'error') return 'border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/20 text-zinc-200';
-    if (uiState === 'typing') return 'border-blue-500/50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 text-zinc-200';
-    return 'border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 text-zinc-200';
-  };
-
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 relative overflow-hidden transition-colors duration-700">
-
-      {/* FULL SCREEN WARP TRANSITION (The Spark Animation) */}
-      <div className={`fixed inset-0 z-50 flex items-center justify-center bg-zinc-950 transition-opacity duration-500 ${isTransitioning ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-        <div className={`relative flex items-center justify-center transition-all duration-[1500ms] ease-in-out ${isTransitioning ? 'scale-[150] opacity-0 delay-500' : 'scale-100 opacity-100'}`}>
-          <svg className="w-16 h-16 animate-[spin_4s_linear_infinite]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24C12 17.3726 6.62742 12 0 12C6.62742 12 12 6.62742 12 0Z" fill="url(#ai-spark)"/>
-            <defs>
-              <linearGradient id="ai-spark" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#ef4444" /> {/* Red */}
-                <stop offset="33%" stopColor="#3b82f6" /> {/* Blue */}
-                <stop offset="66%" stopColor="#10b981" /> {/* Green */}
-                <stop offset="100%" stopColor="#eab308" /> {/* Yellow */}
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
-      </div>
-
-      {/* Dynamic Background Orbs */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className={`absolute top-[-10%] left-[-10%] w-[40%] h-[40%] blur-[120px] rounded-full transition-colors duration-1000 ${getOrbColor()}`}></div>
-        <div className={`absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] blur-[120px] rounded-full transition-colors duration-1000 ${getOrbColor()}`}></div>
-      </div>
-
-      <div className={`w-full max-w-md z-10 transition-all duration-700 ${isTransitioning ? 'opacity-0 scale-90 blur-sm' : 'opacity-100 scale-100'}`}>
-        <div className={`p-8 rounded-xl backdrop-blur-md transition-all duration-500 border ${getCardStyles()}`}>
-
-          {/* BRANDING LOGO INJECTION */}
-          <div className="flex flex-col items-center text-center mb-6">
-            <div className={`w-32 h-32 mb-4 rounded-3xl overflow-hidden relative transition-all duration-500 border ${
-              uiState === 'success' 
-                ? 'border-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.4)]' 
-                : uiState === 'typing'
-                ? 'border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.3)]'
-                : 'border-zinc-800 shadow-[0_0_20px_rgba(0,0,0,0.5)]'
-            }`}>
-              <img src={logo} alt="SCC Logo" className="w-full h-full object-cover" />
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Left: login form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6">
+        <div className="w-full max-w-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
+          {/* Compact header shown only on mobile/tablet, where the branding panel is hidden */}
+          <div className="flex lg:hidden flex-col items-center text-center mb-5">
+            <div className="w-14 h-14 mb-3 rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+              <img src={logo} alt="SmartCity" className="w-full h-full object-cover" />
             </div>
-            <p className="text-xs font-mono text-zinc-500 mt-2 uppercase tracking-widest">
-              Secure Access Terminal
-            </p>
+            <h1 className="text-lg font-semibold text-gray-900">SmartCity</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Sign in to your account</p>
+          </div>
+
+          <div className="hidden lg:block mb-6">
+            <h1 className="text-lg font-semibold text-gray-900">Sign in</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Enter your details to continue</p>
           </div>
 
           {error && (
-            <div className="mb-6 p-3 bg-red-950/30 border-l-2 border-red-500 rounded-r-lg flex items-center gap-2 animate-in slide-in-from-top-2">
-              <span className="text-xs font-mono text-red-400 uppercase tracking-wider">{error}</span>
+            <div className="mb-5 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
+              <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+              <span className="text-sm text-red-700">{error}</span>
             </div>
           )}
 
           {showOTP ? (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="animate-in fade-in slide-in-from-right-2 duration-300">
               <div className="text-center mb-6">
-                <h2 className="text-emerald-400 font-mono text-sm uppercase tracking-widest mb-2">
-                  Identity Verification
-                </h2>
-                <p className="text-zinc-500 text-[10px] font-mono uppercase tracking-widest leading-relaxed">
-                  A 6-digit secure code has been routed to<br/>
-                  <span className="text-zinc-300">{pendingEmail}</span>
+                <h2 className="text-gray-900 font-medium mb-1">Verify it's you</h2>
+                <p className="text-gray-500 text-sm">
+                  We sent a 6-digit code to <span className="text-gray-900">{pendingEmail}</span>
                 </p>
               </div>
 
-              <form onSubmit={handleVerifyOTP} className="space-y-5">
+              <form onSubmit={handleVerifyOTP} className="space-y-4">
                 <div>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Lock size={16} className={`transition-colors ${uiState === 'typing' ? 'text-blue-500' : 'text-zinc-600'}`} />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                      <Lock size={16} />
                     </div>
                     <input
                       type="text"
                       maxLength="6"
                       value={otpCode}
-                      onChange={(e) => {
-                        setOtpCode(e.target.value.replace(/\D/g, ''));
-                        if (uiState === 'error') {
-                          setError('');
-                          setUiState('typing');
-                        }
-                      }}
-                      className={`w-full bg-zinc-950/50 rounded-lg pl-12 pr-4 py-4 text-center text-2xl tracking-[0.5em] focus:outline-none transition-all font-mono shadow-inner border ${getInputClass()}`}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      className="input pl-10 text-center text-xl tracking-[0.4em]"
                       placeholder="000000"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={isVerifying || otpCode.length !== 6 || uiState === 'success'}
-                    className={`w-full font-bold font-mono text-xs uppercase tracking-widest py-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 relative overflow-hidden group/btn ${
-                      uiState === 'typing' 
-                        ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.3)]' 
-                        : 'bg-emerald-600 hover:bg-emerald-500 text-zinc-950 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
-                    } disabled:opacity-70 disabled:cursor-wait`}
-                  >
-                    <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover/btn:animate-[shimmer_1.5s_infinite]"></div>
-                    {isVerifying || uiState === 'success' ? (
-                      <><Loader2 size={16} className="animate-spin text-zinc-900" /> Verifying...</>
-                    ) : ('Confirm Identity')}
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  disabled={isVerifying || otpCode.length !== 6}
+                  className="btn-primary w-full py-2.5"
+                >
+                  {isVerifying ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Verifying…
+                    </>
+                  ) : (
+                    'Verify & continue'
+                  )}
+                </button>
               </form>
 
-              {!isVerifying && uiState !== 'success' && (
-                <div className="mt-6 text-center">
-                  <button
-                    onClick={() => {
-                      setShowOTP(false);
-                      setOtpCode('');
-                      setError('');
-                      setUiState('idle');
-                    }}
-                    className="flex items-center justify-center gap-2 w-full text-zinc-600 hover:text-emerald-400 transition-colors text-[10px] font-mono uppercase tracking-widest"
-                  >
-                    <ArrowLeft size={14} /> Cancel Protocol
-                  </button>
-                </div>
-              )}
+              <button
+                onClick={() => {
+                  setShowOTP(false);
+                  setOtpCode('');
+                  setError('');
+                }}
+                className="mt-5 flex items-center justify-center gap-1.5 w-full text-gray-500 hover:text-gray-700 transition-colors text-sm"
+              >
+                <ArrowLeft size={14} /> Back to login
+              </button>
             </div>
           ) : (
-            <div className={uiState === 'success' ? 'opacity-0 pointer-events-none transition-opacity duration-300' : 'animate-in fade-in slide-in-from-left-4 duration-500'}>
-              <div className="grid grid-cols-2 gap-2 mb-8">
-                {['Citizen/Resident', 'Dept', 'Worker', 'Admin'].map((role) => (
+            <div className="animate-in fade-in slide-in-from-left-2 duration-300">
+              <div className="grid grid-cols-4 gap-1.5 mb-5 bg-gray-100 p-1 rounded-lg">
+                {ROLE_TABS.map((role) => (
                   <button
                     key={role}
                     type="button"
                     onClick={() => setActiveTab(role)}
-                    className={`py-3 px-2 text-[10px] sm:text-[10px] font-mono uppercase tracking-widest rounded-md transition-all duration-200 border ${
+                    className={`py-2 px-1 text-xs font-medium rounded-md transition-all ${
                       activeTab === role
-                        ? 'bg-zinc-800 text-emerald-400 shadow-sm border-zinc-700/50'
-                        : 'bg-zinc-900/30 text-zinc-500 border-zinc-800/50 hover:text-zinc-300 hover:bg-zinc-800/50'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
-                    {role}
+                    {role === 'Citizen/Resident' ? 'Citizen' : role}
                   </button>
                 ))}
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className={`block text-[10px] font-mono mb-2 uppercase tracking-widest transition-colors ${uiState === 'typing' ? 'text-blue-400' : 'text-zinc-500'}`}>
-                    {activeTab === 'Dept' ? 'Department' : activeTab} Official Email or Phone
+                  <label className="label">
+                    {activeTab === 'Dept' ? 'Department' : activeTab} email or phone
                   </label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Mail size={16} className={`transition-colors ${uiState === 'typing' ? 'text-blue-500' : 'text-zinc-600'}`} />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                      <Mail size={16} />
                     </div>
                     <input
-                      type="text" 
+                      type="text"
                       name="email"
                       value={credentials.email}
                       onChange={handleChange}
-                      className={`w-full bg-zinc-950/50 rounded-lg pl-12 pr-4 py-3.5 outline-none transition-all font-sans shadow-inner border ${getInputClass()}`}
-                      placeholder="ID@smartcity.gov or mobile number" 
+                      className="input pl-10"
+                      placeholder="you@example.com"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className={`block text-[10px] font-mono uppercase tracking-widest transition-colors ${uiState === 'typing' ? 'text-blue-400' : 'text-zinc-500'}`}>
-                      Passcode
-                    </label>
-                    <Link 
-                      to="/forgot-password" 
-                      className="text-[10px] font-mono text-zinc-600 hover:text-emerald-400 transition-colors uppercase tracking-widest"
-                    >
-                      Forgot Passcode?
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="label mb-0">Password</label>
+                    <Link to="/forgot-password" className="text-xs text-brand-600 hover:text-brand-700 transition-colors">
+                      Forgot password?
                     </Link>
                   </div>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Key size={16} className={`transition-colors ${uiState === 'typing' ? 'text-blue-500' : 'text-zinc-600'}`} />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                      <Lock size={16} />
                     </div>
                     <input
-                      type={showPassword ? "text" : "password"}
+                      type={showPassword ? 'text' : 'password'}
                       name="password"
                       value={credentials.password}
                       onChange={handleChange}
-                      className={`w-full bg-zinc-950/50 rounded-lg pl-12 pr-12 py-3.5 outline-none transition-all font-sans shadow-inner border ${getInputClass()}`}
-                      placeholder="••••••••" 
+                      className="input pl-10 pr-10"
+                      placeholder="••••••••"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-600 hover:text-emerald-400 transition-colors"
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
                       aria-label="Toggle password visibility"
                     >
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -352,45 +231,45 @@ function Login() {
                   </div>
                 </div>
 
-                <div className="pt-4">
-                  <button
-                    type="submit"
-                    disabled={isLoading || uiState === 'success'}
-                    className={`w-full font-bold font-mono text-xs uppercase tracking-widest py-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 relative overflow-hidden group/btn ${
-                      uiState === 'typing' 
-                        ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.3)]' 
-                        : 'bg-emerald-600 hover:bg-emerald-500 text-zinc-950 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
-                    } disabled:opacity-70 disabled:cursor-wait`}
-                  >
-                    <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover/btn:animate-[shimmer_1.5s_infinite]"></div>
-                    {isLoading || uiState === 'loading' ? (
-                      <><Loader2 size={16} className="animate-spin text-zinc-900" /> Authenticating...</>
-                    ) : ('Initialize Session')}
-                  </button>
-                </div>
+                <button type="submit" disabled={isLoading} className="btn-primary w-full py-2.5 mt-1">
+                  {isLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Signing in…
+                    </>
+                  ) : (
+                    'Sign in'
+                  )}
+                </button>
               </form>
 
               {activeTab === 'Citizen/Resident' && (
-                <div className="mt-8 text-center">
-                  <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
-                    New to the network?
-                  </p>
-                  <Link
-                    to="/register"
-                    className="text-[10px] font-mono text-emerald-500 hover:text-emerald-400 uppercase tracking-widest mt-2 inline-block border-b border-emerald-500/30 hover:border-emerald-400 pb-0.5 transition-all"
-                  >
-                    Initiate Citizen/Resident Registration
+                <p className="mt-5 text-center text-sm text-gray-500">
+                  New here?{' '}
+                  <Link to="/register" className="text-brand-600 hover:text-brand-700 font-medium transition-colors">
+                    Create an account
                   </Link>
-                </div>
+                </p>
               )}
             </div>
           )}
-
         </div>
+      </div>
 
-        <p className="text-center text-zinc-700 text-[10px] font-mono mt-6 uppercase tracking-widest">
-          End-to-End Encrypted via FastAPI
-        </p>
+      {/* Right: branding panel (hidden on small screens) */}
+      <div className="hidden lg:flex w-1/2 bg-brand-600 relative overflow-hidden items-center justify-center">
+        <div
+          className="absolute inset-0 opacity-[0.07]"
+          style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '28px 28px' }}
+        />
+        <div className="relative z-10 text-center px-12 animate-in fade-in slide-in-from-right-2 duration-500">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl overflow-hidden border-2 border-white/25 shadow-lg">
+            <img src={logo} alt="SmartCity" className="w-full h-full object-cover" />
+          </div>
+          <h1 className="text-4xl font-bold text-white tracking-tight">SmartCity</h1>
+          <p className="text-brand-100 text-sm mt-4 max-w-xs mx-auto leading-relaxed">
+            Report civic issues, track their progress, and help build a better city — together.
+          </p>
+        </div>
       </div>
     </div>
   );

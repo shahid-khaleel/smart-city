@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Shield, User, Mail, Key, Phone, MapPin, Globe, AlertCircle, Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle2, User, Phone, MapPin, Globe, AlertCircle, Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import logo from '../assets/scc-logo.png'; // Official Branding Injected
+import logo from '../assets/logo.svg';
 
 const Register = () => {
-  const { register } = useAuth(); 
+  const { register } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -19,199 +19,152 @@ const Register = () => {
     state: '',
     city: '',
     area: '',
-    houseNo: ''
+    houseNo: '',
   });
-  
+
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // Password Visibility States
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Determines if the regional fields should be unlocked
   const isIndia = formData.country.trim().toLowerCase() === 'india';
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // 1. Frontend Validation
+
     if (!formData.fullName || !formData.email || !formData.password) {
-      setError('System Alert: All identification fields are required.');
+      setError('Name, email and password are required.');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('System Alert: Security passcodes do not match.');
+      setError('Passwords do not match.');
       return;
     }
 
     if (formData.password.length < 8) {
-      setError('System Alert: Passcode must be at least 8 characters long.');
+      setError('Password must be at least 8 characters long.');
       return;
     }
 
-    // 2. Real API Call to FastAPI
     setIsLoading(true);
     try {
       const result = await register({
-        full_name: formData.fullName, 
+        full_name: formData.fullName,
         email: formData.email,
         password: formData.password,
-        role: "Citizen",
-        // We send these to the backend. (Make sure your Pydantic schema accepts them!)
+        role: 'Citizen',
         phone: `${formData.phoneCode}${formData.phoneNumber}`,
         country: formData.country,
         state: isIndia ? formData.state : null,
         city: isIndia ? formData.city : null,
         area: isIndia ? formData.area : null,
-        house_no: isIndia ? formData.houseNo : null
+        house_no: isIndia ? formData.houseNo : null,
       });
 
       if (!result.success) {
         setError(result.error);
       } else {
         setIsSuccess(true);
-        // Automatically redirect to login page after 3 seconds
-        setTimeout(() => navigate('/login'), 3000);
+        setTimeout(() => navigate('/login'), 2500);
       }
-
     } catch (err) {
-      setError('Registration protocol failed. Please check your connection.');
+      setError('Registration failed. Please check your connection.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 relative overflow-hidden py-12">
-      
-      {/* Background Aesthetic Elements */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-900/10 blur-[120px] rounded-full"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-zinc-800/20 blur-[120px] rounded-full"></div>
-      </div>
+  const fieldClass = (disabled) => `input text-sm ${disabled ? 'opacity-50' : ''}`;
 
-      <div className="w-full max-w-2xl z-10">
-        <div className="vault-card p-8 border-zinc-800/80 shadow-2xl bg-zinc-950/80 backdrop-blur-sm rounded-xl">
-          
-          {/* Header with Custom Logo */}
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="w-28 h-28 mb-4 rounded-3xl overflow-hidden relative transition-all duration-500 border border-zinc-800 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
-              <img src={logo} alt="SCC Logo" className="w-full h-full object-cover" />
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 py-10">
+      <div className="w-full max-w-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="card p-6">
+          {/* Header */}
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-14 h-14 mb-3 rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+              <img src={logo} alt="SmartCity Connect" className="w-full h-full object-cover" />
             </div>
-            <h1 className="text-2xl font-bold text-zinc-100 uppercase tracking-widest">
-              Citizen/Resident <span className="text-emerald-500">Registry</span>
-            </h1>
-            <p className="text-xs font-mono text-zinc-500 mt-2 uppercase tracking-widest">
-              Establish System Access
-            </p>
+            <h1 className="text-lg font-semibold text-gray-900">Create your account</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Join SmartCity Connect as a citizen</p>
           </div>
 
-          {/* Success State */}
           {isSuccess ? (
-            <div className="text-center space-y-4 py-8 animate-in fade-in zoom-in duration-300">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-950/50 border border-emerald-900/50 mb-2 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                <Shield size={32} className="text-emerald-500" />
+            <div className="text-center space-y-3 py-8 animate-in fade-in zoom-in-95 duration-300">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 mb-1">
+                <CheckCircle2 size={32} className="text-emerald-600" />
               </div>
-              <h2 className="text-xl font-bold text-zinc-100 uppercase tracking-wide">Identity Verified</h2>
-              <p className="text-sm font-mono text-zinc-400">Your credentials have been securely logged.</p>
-              <Link 
-                to="/login" 
-                className="inline-block mt-4 px-6 py-2 bg-zinc-900 border border-zinc-700 text-zinc-300 rounded-lg hover:bg-zinc-800 hover:text-emerald-400 transition-colors font-mono text-sm uppercase tracking-wider"
-              >
-                Proceed to Login
+              <h2 className="text-lg font-semibold text-gray-900">Account created</h2>
+              <p className="text-sm text-gray-500">Redirecting you to login…</p>
+              <Link to="/login" className="btn-secondary inline-flex mt-4">
+                Go to login now
               </Link>
             </div>
           ) : (
             <>
-              {/* Error Message Display */}
               {error && (
-                <div className="mb-6 p-3 bg-red-950/30 border border-red-900/50 rounded-lg flex items-center gap-2">
-                  <span className="text-xs font-mono text-red-400 uppercase tracking-wider">{error}</span>
+                <div className="mb-5 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                  <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                  <span className="text-sm text-red-700">{error}</span>
                 </div>
               )}
 
-              {/* Registration Form */}
-              <form onSubmit={handleSubmit} className="space-y-6">
-                
-                {/* Identity Module */}
-                <div className="space-y-4 p-4 border border-zinc-800/50 rounded-lg bg-zinc-900/20">
-                  <h2 className="text-xs font-mono text-emerald-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <User size={14} /> Identity Profile
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Identity */}
+                <div className="space-y-3.5 p-3.5 border border-gray-200 rounded-lg bg-gray-50/60">
+                  <h2 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <User size={14} /> Your details
                   </h2>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-[10px] font-mono text-zinc-500 mb-1 uppercase tracking-wider">Full Legal Name</label>
-                      <input
-                        type="text"
-                        name="fullName"
-                        value={formData.fullName}
-                        onChange={handleChange}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-200 placeholder-zinc-700 focus:border-emerald-500 outline-none transition-all text-sm"
-                        placeholder="Jane Doe" 
-                      />
+                      <label className="label">Full name</label>
+                      <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} className={fieldClass()} placeholder="Jane Doe" />
                     </div>
-                    
+
                     <div className="md:col-span-2">
-                      <label className="block text-[10px] font-mono text-zinc-500 mb-1 uppercase tracking-wider">Contact Email</label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-200 placeholder-zinc-700 focus:border-emerald-500 outline-none transition-all text-sm"
-                        placeholder="ID@domain.com" 
-                      />
+                      <label className="label">Email</label>
+                      <input type="email" name="email" value={formData.email} onChange={handleChange} className={fieldClass()} placeholder="you@example.com" />
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-mono text-zinc-500 mb-1 uppercase tracking-wider">Secure Passcode</label>
-                      <div className="relative group">
+                      <label className="label">Password</label>
+                      <div className="relative">
                         <input
-                          type={showPassword ? "text" : "password"}
+                          type={showPassword ? 'text' : 'password'}
                           name="password"
                           value={formData.password}
                           onChange={handleChange}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-3 pr-10 py-2.5 text-zinc-200 placeholder-zinc-700 focus:border-emerald-500 outline-none transition-all text-sm"
-                          placeholder="••••••••" 
+                          className={`${fieldClass()} pr-10`}
+                          placeholder="••••••••"
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-600 hover:text-emerald-400 transition-colors"
-                          aria-label="Toggle password visibility"
-                        >
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors">
                           {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-mono text-zinc-500 mb-1 uppercase tracking-wider">Confirm Passcode</label>
-                      <div className="relative group">
+                      <label className="label">Confirm password</label>
+                      <div className="relative">
                         <input
-                          type={showConfirmPassword ? "text" : "password"}
+                          type={showConfirmPassword ? 'text' : 'password'}
                           name="confirmPassword"
                           value={formData.confirmPassword}
                           onChange={handleChange}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-3 pr-10 py-2.5 text-zinc-200 placeholder-zinc-700 focus:border-emerald-500 outline-none transition-all text-sm"
-                          placeholder="••••••••" 
+                          className={`${fieldClass()} pr-10`}
+                          placeholder="••••••••"
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-600 hover:text-emerald-400 transition-colors"
-                          aria-label="Toggle confirm password visibility"
-                        >
+                        <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors">
                           {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                       </div>
@@ -219,152 +172,85 @@ const Register = () => {
                   </div>
                 </div>
 
-                {/* Contact Module */}
-                <div className="space-y-4 p-4 border border-zinc-800/50 rounded-lg bg-zinc-900/20">
-                  <h2 className="text-xs font-mono text-emerald-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Phone size={14} /> Contact Node
+                {/* Contact */}
+                <div className="space-y-3.5 p-3.5 border border-gray-200 rounded-lg bg-gray-50/60">
+                  <h2 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Phone size={14} /> Phone number
                   </h2>
-                  
-                  <div>
-                    <label className="block text-[10px] font-mono text-zinc-500 mb-1 uppercase tracking-wider">Phone Number</label>
-                    <div className="flex gap-2">
-                      <select
-                        name="phoneCode"
-                        value={formData.phoneCode}
-                        onChange={handleChange}
-                        className="w-24 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2.5 text-zinc-200 focus:border-emerald-500 outline-none text-sm appearance-none text-center font-mono cursor-pointer"
-                      >
-                        <option value="+91">+91 (IN)</option>
-                        <option value="+1">+1 (US)</option>
-                        <option value="+44">+44 (UK)</option>
-                        <option value="+84">+84 (VN)</option>
-                        <option value="+971">+971 (AE)</option>
-                      </select>
-                      <input
-                        type="tel"
-                        name="phoneNumber"
-                        value={formData.phoneNumber}
-                        onChange={handleChange}
-                        className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-200 placeholder-zinc-700 focus:border-emerald-500 outline-none transition-all text-sm font-mono"
-                        placeholder="9876543210" 
-                      />
-                    </div>
+
+                  <div className="flex gap-2">
+                    <select name="phoneCode" value={formData.phoneCode} onChange={handleChange} className="input w-28 text-center cursor-pointer">
+                      <option value="+91">+91 (IN)</option>
+                      <option value="+1">+1 (US)</option>
+                      <option value="+44">+44 (UK)</option>
+                      <option value="+84">+84 (VN)</option>
+                      <option value="+971">+971 (AE)</option>
+                    </select>
+                    <input type="tel" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} className="input flex-1" placeholder="9876543210" />
                   </div>
                 </div>
 
-                {/* Location Module */}
-                <div className="space-y-4 p-4 border border-zinc-800/50 rounded-lg bg-zinc-900/20">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xs font-mono text-emerald-500 uppercase tracking-widest flex items-center gap-2">
-                      <MapPin size={14} /> Geographic Location
+                {/* Location */}
+                <div className="space-y-3.5 p-3.5 border border-gray-200 rounded-lg bg-gray-50/60">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <MapPin size={14} /> Location
                     </h2>
                     {!isIndia && (
-                      <span className="flex items-center gap-1 text-[10px] font-mono text-amber-500 uppercase tracking-widest bg-amber-950/30 px-2 py-1 rounded border border-amber-900/50">
-                        <AlertCircle size={10} /> Local Routing Disabled
+                      <span className="badge badge-amber">
+                        <AlertCircle size={11} /> Regional fields disabled
                       </span>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-[10px] font-mono text-zinc-500 mb-1 uppercase tracking-wider items-center gap-1">
+                      <label className="label flex items-center gap-1">
                         <Globe size={12} /> Country
                       </label>
-                      <input
-                        type="text"
-                        name="country"
-                        value={formData.country}
-                        onChange={handleChange}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-200 placeholder-zinc-700 focus:border-emerald-500 outline-none transition-all text-sm font-bold"
-                        placeholder="Enter Country" 
-                      />
+                      <input type="text" name="country" value={formData.country} onChange={handleChange} className={fieldClass()} placeholder="Enter country" />
                     </div>
 
-                    <div className={!isIndia ? "opacity-40 pointer-events-none grayscale transition-all" : "transition-all"}>
-                      <label className="block text-[10px] font-mono text-zinc-500 mb-1 uppercase tracking-wider">State</label>
-                      <input
-                        type="text"
-                        name="state"
-                        disabled={!isIndia}
-                        value={formData.state}
-                        onChange={handleChange}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-200 placeholder-zinc-700 focus:border-emerald-500 outline-none transition-all text-sm disabled:bg-zinc-900"
-                        placeholder="Karnataka" 
-                      />
+                    <div>
+                      <label className="label">State</label>
+                      <input type="text" name="state" disabled={!isIndia} value={formData.state} onChange={handleChange} className={fieldClass(!isIndia)} placeholder="Karnataka" />
                     </div>
 
-                    <div className={!isIndia ? "opacity-40 pointer-events-none grayscale transition-all" : "transition-all"}>
-                      <label className="block text-[10px] font-mono text-zinc-500 mb-1 uppercase tracking-wider">City</label>
-                      <input
-                        type="text"
-                        name="city"
-                        disabled={!isIndia}
-                        value={formData.city}
-                        onChange={handleChange}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-200 placeholder-zinc-700 focus:border-emerald-500 outline-none transition-all text-sm disabled:bg-zinc-900"
-                        placeholder="Bengaluru" 
-                      />
+                    <div>
+                      <label className="label">City</label>
+                      <input type="text" name="city" disabled={!isIndia} value={formData.city} onChange={handleChange} className={fieldClass(!isIndia)} placeholder="Bengaluru" />
                     </div>
 
-                    <div className={!isIndia ? "opacity-40 pointer-events-none grayscale transition-all" : "transition-all"}>
-                      <label className="block text-[10px] font-mono text-zinc-500 mb-1 uppercase tracking-wider">Area / Locality</label>
-                      <input
-                        type="text"
-                        name="area"
-                        disabled={!isIndia}
-                        value={formData.area}
-                        onChange={handleChange}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-200 placeholder-zinc-700 focus:border-emerald-500 outline-none transition-all text-sm disabled:bg-zinc-900"
-                        placeholder="Koramangala" 
-                      />
+                    <div>
+                      <label className="label">Area / locality</label>
+                      <input type="text" name="area" disabled={!isIndia} value={formData.area} onChange={handleChange} className={fieldClass(!isIndia)} placeholder="Koramangala" />
                     </div>
 
-                    <div className={!isIndia ? "opacity-40 pointer-events-none grayscale transition-all" : "transition-all"}>
-                      <label className="block text-[10px] font-mono text-zinc-500 mb-1 uppercase tracking-wider">House / Apt No.</label>
-                      <input
-                        type="text"
-                        name="houseNo"
-                        disabled={!isIndia}
-                        value={formData.houseNo}
-                        onChange={handleChange}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-200 placeholder-zinc-700 focus:border-emerald-500 outline-none transition-all text-sm disabled:bg-zinc-900"
-                        placeholder="Apt 4B" 
-                      />
+                    <div>
+                      <label className="label">House / apt no.</label>
+                      <input type="text" name="houseNo" disabled={!isIndia} value={formData.houseNo} onChange={handleChange} className={fieldClass(!isIndia)} placeholder="Apt 4B" />
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-950 font-bold font-mono uppercase tracking-widest py-3.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-[0_0_15px_rgba(16,185,129,0.15)] hover:shadow-[0_0_25px_rgba(16,185,129,0.3)]"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 size={18} className="animate-spin" />
-                        Transmitting...
-                      </>
-                    ) : (
-                      'Register Identity'
-                    )}
-                  </button>
-                </div>
+                <button type="submit" disabled={isLoading} className="btn-primary w-full py-2.5">
+                  {isLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Creating account…
+                    </>
+                  ) : (
+                    'Create account'
+                  )}
+                </button>
               </form>
             </>
           )}
-
         </div>
-        
-        {/* Navigation back to Login */}
+
         {!isSuccess && (
           <div className="mt-6 flex justify-center">
-            <Link 
-              to="/login" 
-              className="flex items-center gap-2 text-zinc-500 hover:text-emerald-400 transition-colors text-xs font-mono uppercase tracking-widest"
-            >
-              <ArrowLeft size={14} />
-              Return to Login Terminal
+            <Link to="/login" className="flex items-center gap-1.5 text-gray-500 hover:text-gray-700 transition-colors text-sm">
+              <ArrowLeft size={14} /> Back to login
             </Link>
           </div>
         )}

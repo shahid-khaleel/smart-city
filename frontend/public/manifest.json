@@ -4,26 +4,14 @@
   "description": "Report, track, and manage civic issues in your city.",
   "icons": [
     {
-      "src": "/scc-logo.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/scc-logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/scc-logo.png",
-      "sizes": "1254x1254",
-      "type": "image/png",
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#10b981",
-  "background_color": "#09090b"
+  "theme_color": "#2563eb",
+  "background_color": "#f9fafb"
 }

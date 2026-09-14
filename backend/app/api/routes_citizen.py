@@ -6,7 +6,6 @@ from typing import List, Optional
 from .deps import get_db, get_current_user
 from app.models.user import User
 from app.models.complaint import Complaint
-from app.models.feedback import Feedback
 from app.schemas.complaint_schema import ComplaintResponse
 from app.services.upload import save_upload_file
 
@@ -18,79 +17,6 @@ from ai_module.duplicate_detector import is_duplicate
 
 # Set up the router with the prefix to keep endpoints clean (e.g., /citizen/complaints)
 router = APIRouter(prefix="/citizen", tags=["Citizen Operations"])
-
-@router.post("/complaints", response_model=ComplaintResponse, status_code=status.HTTP_201_CREATED)
-async def report_issue(
-    description: str = Form(...),
-    location_lat: float = Form(...),
-    location_lng: float = Form(...),
-    address: str = Form(...),
-    category: Optional[str] = Form(None),
-    image: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Report a new civic issue with automated AI validation, zero-shot classification, 
-    priority triage, and duplicate detection.
-    """
-    # Role-Based Access Control (RBAC)
-    if current_user.role != "Citizen":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Only Citizens can submit complaints."
-        )
-
-    # 1. AI Image Validation (Bouncer) - Checks if image is too blurry
-    valid_image = await is_image_valid(image, blur_threshold=80.0)
-    if not valid_image:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="The uploaded image is too blurry or invalid. Please upload a clear photo of the issue."
-        )
-
-    # 2. AI Zero-Shot Classification (Categorizer) - Fallback if category isn't provided manually
-    resolved_category = category if category else classify_issue(description)
-
-    # 3. AI Priority Engine (Triage) - Assigns urgency dynamically
-    assigned_priority = determine_priority(description)
-
-    # 4. AI Duplicate Detection (Filter) - Flags potential duplicate submissions
-    recent_complaints = db.query(Complaint.description).order_by(Complaint.id.desc()).limit(20).all()
-    existing_texts = [c[0] for c in recent_complaints]
-    
-    final_description = description
-    if is_duplicate(description, existing_texts, similarity_threshold=0.85):
-        final_description = f"[POTENTIAL DUPLICATE] {description}"
-
-    # 5. Upload image via our local storage service
-    image_path = None
-    if image:
-        image_path = save_upload_file(image, subfolder="complaints")
-        
-    # Combine the granular location data into a single string for the database model
-    formatted_location = f"{address} (Lat: {location_lat}, Lng: {location_lng})"
-
-    # 6. Database insertion using SQLAlchemy directly with enriched AI properties
-    new_complaint = Complaint(
-        title=resolved_category,
-        category=resolved_category,
-        description=final_description,
-        address=address,
-        location_lat=location_lat,
-        location_lng=location_lng,
-        image_url=image_path,
-        user_id=current_user.id,
-        status="Submitted",
-        priority=assigned_priority
-    )
-    
-    db.add(new_complaint)
-    db.commit()
-    db.refresh(new_complaint)
-    
-    return new_complaint
-
 
 @router.get("/complaints", response_model=List[ComplaintResponse])
 def get_my_complaints(
@@ -190,9 +116,6 @@ async def report_issue(
     image_path = None
     if image:
         image_path = save_upload_file(image, subfolder="complaints")
-        
-    # Combine the granular location data into a single string for the database model
-    formatted_location = f"{address} (Lat: {location_lat}, Lng: {location_lng})"
 
     # 6. Database insertion using SQLAlchemy directly with enriched AI properties
     new_complaint = Complaint(
